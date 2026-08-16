@@ -340,10 +340,10 @@ export default function OtpOnlyLogin() {
   // ── Email step (OTP or password) ──────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Welcome back</h2>
-        <p className="mt-1.5 text-sm leading-6 text-[var(--color-text-muted)]">
+        <h2 className="text-3xl font-semibold tracking-tight text-[var(--color-text)]">Welcome back</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-text-muted)]">
           {usePassword ? "Sign in with your email and password." : "Log in securely with a one-time password."}
         </p>
       </div>

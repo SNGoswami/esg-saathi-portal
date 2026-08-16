@@ -1,7 +1,10 @@
 export default function MobileHeader() {
   return (
-    <p className="lg:hidden mb-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--brand-700)]">
-      Portal login
-    </p>
+    <div className="lg:hidden mb-8 text-center">
+      <h1 className="text-3xl font-semibold">ESGSaathi Portal Login</h1>
+      <p className="mt-3 text-sm text-[var(--color-text-muted)]">
+        Log in to your workspace
+      </p>
+    </div>
   );
 }

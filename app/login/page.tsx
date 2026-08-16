@@ -28,12 +28,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   }
 
   return (
-    <div className="page-shell auth-page">
+    <div className="page-shell">
       <Navbar />
 
       <main className="page-main">
         <div className="page-band">
-          <Suspense fallback={<div className="auth-shell"><p className="text-sm text-[var(--color-text-muted)]">Loading…</p></div>}>
+          <Suspense fallback={<div className="py-16 text-center text-sm text-[var(--color-text-muted)]">Loading…</div>}>
             <AuthShell />
           </Suspense>
         </div>
