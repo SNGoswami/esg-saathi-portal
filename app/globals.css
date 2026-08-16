@@ -452,6 +452,31 @@
     background: transparent;
   }
 
+  /* Login/signin: one continuous atmospheric surface, footer on the same canvas */
+  .auth-page {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-page .page-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+  }
+
+  .auth-page .page-band {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .auth-page .auth-shell {
+    flex: 1;
+    width: 100%;
+  }
+
   .page-main {
     overflow-x: hidden;
     max-width: 100%;
@@ -1357,6 +1382,10 @@
     .public-footer__grid {
       grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
       gap: 2.5rem;
+    }
+
+    .public-footer__grid--login {
+      grid-template-columns: 1.4fr 1fr 1.2fr;
     }
   }
 

@@ -105,14 +105,14 @@ export default function AuthShell() {
 
   if (waitingForSessionReset || (!reauthParam && !signedOutParam && (user || loading))) {
     return (
-      <div className="flex min-h-[calc(100dvh-60px)] items-center justify-center px-4 py-8 sm:py-12">
+      <div className="auth-shell flex items-center justify-center px-4 py-8 sm:py-12">
         <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-60px)] items-center justify-center px-4 py-8 sm:py-12">
+    <div className="auth-shell flex items-center justify-center px-4 py-8 sm:py-12">
       <div className="auth-shell-card">
         <div className="grid lg:grid-cols-[minmax(300px,420px)_1fr]">
           <BrandPanel />

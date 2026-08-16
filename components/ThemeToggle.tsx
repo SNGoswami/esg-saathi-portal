@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "@/context/ThemeContext";
-import { Moon, Sun } from "lucide-react";
+import { Cookie, Moon, Sun } from "lucide-react";
 
 export default function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
@@ -19,6 +19,22 @@ export default function ThemeToggle() {
       ) : (
         <Moon size={17} strokeWidth={1.75} />
       )}
+    </button>
+  );
+}
+
+export function CookiePreferencesButton() {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const btn = document.querySelector(".cky-btn-revisit") as HTMLButtonElement | null;
+        btn?.click();
+      }}
+      className="public-footer__link footer-button"
+    >
+      <Cookie size={14} className="opacity-70" />
+      Cookie Preferences
     </button>
   );
 }
