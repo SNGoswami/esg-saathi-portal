@@ -9,7 +9,6 @@ import { useToast } from "@/modules/platform/feedback";
 import BrandPanel from "./BrandPanel";
 import MobileHeader from "./MobileHeader";
 import OtpOnlyLogin from "../login/OtpOnlyLogin";
-import OtpOnlySignup from "../login/OtpOnlySignup";
 
 function loginPathWithoutSessionFlags(
   searchParams: URLSearchParams,
@@ -27,7 +26,6 @@ export default function AuthShell() {
   const { user, loading, refreshUser, resetClientSession } = useAuth();
   const reauthParam = searchParams.get("reauth") === "1";
   const signedOutParam = searchParams.get("signed_out") === "1";
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [sessionCleared, setSessionCleared] = useState(!reauthParam && !signedOutParam);
   const [sessionNotice] = useState<"reauth" | "signed_out" | null>(() => {
     if (reauthParam) return "reauth";
@@ -54,13 +52,13 @@ export default function AuthShell() {
           try {
             if (!sessionStorage.getItem("auth_reauth_notice_shown")) {
               sessionStorage.setItem("auth_reauth_notice_shown", "1");
-              toast.info("Your session expired. Sign in to continue.");
+              toast.info("Your session expired. Log in to continue.");
             }
           } catch {
-            toast.info("Your session expired. Sign in to continue.");
+            toast.info("Your session expired. Log in to continue.");
           }
         } else if (sessionNotice === "signed_out") {
-          toast.success("You have been signed out.");
+          toast.success("You have been logged out.");
         }
       }
 
@@ -121,27 +119,7 @@ export default function AuthShell() {
 
           <div className="p-7 sm:p-10">
             <MobileHeader />
-
-            <div className="mb-8 flex justify-center lg:justify-start">
-              <div className="auth-tab-track">
-                <button
-                  type="button"
-                  onClick={() => setMode("login")}
-                  className={`auth-tab ${mode === "login" ? "auth-tab--active" : ""}`}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMode("signup")}
-                  className={`auth-tab ${mode === "signup" ? "auth-tab--active" : ""}`}
-                >
-                  Sign up
-                </button>
-              </div>
-            </div>
-
-            {mode === "login" ? <OtpOnlyLogin /> : <OtpOnlySignup />}
+            <OtpOnlyLogin />
           </div>
         </div>
       </div>

@@ -1,7 +1,3 @@
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8080";
-
 const focusRing =
   "focus:border-[var(--brand-500)] focus:ring-[3px] focus:ring-[var(--brand-focus-ring)]";
 

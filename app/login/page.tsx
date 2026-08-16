@@ -6,7 +6,7 @@ import AuthShell from "@/modules/auth-ui/components/layout/AuthShell";
 import { getServerAuthUser } from "@/modules/platform/auth/serverAuth";
 import { getPostLoginPath } from "@/modules/platform/rbac/roles";
 
-export const metadata = { title: "Sign in | ESGSaathi" };
+export const metadata = { title: "Log in | ESGSaathi Portal" };
 
 type LoginPageProps = {
   searchParams: Promise<{
