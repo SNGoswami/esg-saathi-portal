@@ -1,0 +1,33 @@
+export const INDUSTRIES = [
+  "Information Technology",
+  "Banking & Financial Services",
+  "Energy & Utilities",
+  "Pharmaceuticals & Healthcare",
+  "Automobile & Auto Components",
+  "FMCG & Consumer Goods",
+  "Metals & Mining",
+  "Telecom & Media",
+  "Infrastructure & Construction",
+  "Chemicals & Fertilizers",
+  "Textiles & Apparel",
+  "Real Estate",
+  "Agriculture & Allied",
+  "Other",
+] as const;
+
+export const INDUSTRY_SECTORS: Record<string, string[]> = {
+  "Information Technology": ["Software Development & SaaS", "IT Hardware & Components", "IT Consulting & Outsourcing", "Data Centers & Cloud Services", "Cybersecurity", "Embedded Systems & IoT"],
+  "Banking & Financial Services": ["Microfinance & Lending", "Insurance", "Payment Processing & Fintech", "Accounting & Auditing Services", "Wealth Management", "NBFCs"],
+  "Energy & Utilities": ["Solar & Renewable Equipment", "EV Charging & Battery", "Power Distribution Components", "Oil & Gas Equipment", "Waste-to-Energy", "Energy Efficiency Solutions"],
+  "Pharmaceuticals & Healthcare": ["API & Drug Intermediates", "Medical Devices & Equipment", "Packaging for Pharma", "Diagnostic Labs & Services", "Ayurveda & Nutraceuticals", "Hospital Supplies"],
+  "Automobile & Auto Components": ["Auto Parts & Components", "EV Components & Assembly", "Tyres & Rubber Products", "Tooling & Die Making", "Vehicle Servicing & Aftermarket", "Logistics & Fleet Management"],
+  "FMCG & Consumer Goods": ["Food Processing & Packaging", "Personal Care & Cosmetics", "Household Products", "Beverages", "Retail & Distribution", "Contract Manufacturing"],
+  "Metals & Mining": ["Steel Fabrication", "Aluminium & Non-Ferrous", "Castings & Forgings", "Mineral Processing", "Scrap Recycling", "Precision Machining"],
+  "Telecom & Media": ["Telecom Equipment & Components", "Cable & Fiber Manufacturing", "Tower Infrastructure", "Broadcasting & Content", "Digital Marketing & AdTech", "Printing & Packaging"],
+  "Infrastructure & Construction": ["Building Materials", "Plumbing & Sanitary Ware", "Electrical Fittings & Wiring", "Prefab & Modular Construction", "Road & Bridge Components", "Interior Fit-Out & Furnishing"],
+  "Chemicals & Fertilizers": ["Specialty Chemicals", "Paints & Coatings", "Agrochemicals & Pesticides", "Plastics & Polymers", "Dyes & Pigments", "Industrial Gases"],
+  "Textiles & Apparel": ["Yarn & Fabric Manufacturing", "Garment & Apparel", "Technical Textiles", "Dyeing & Processing", "Home Textiles & Furnishing", "Fashion Accessories"],
+  "Real Estate": ["Residential Construction", "Commercial Interiors", "Property Management", "Building Automation & MEP", "Cement & Ready-Mix", "Architectural & Design Services"],
+  "Agriculture & Allied": ["Agri Inputs & Seeds", "Food Grains & Commodities Trading", "Dairy & Poultry", "Organic Farming & Products", "Agri Equipment & Machinery", "Cold Chain & Warehousing"],
+  Other: ["Education & EdTech", "Logistics & Supply Chain", "Hospitality & Tourism", "Legal & Compliance Services", "Environmental Services", "Other"],
+};

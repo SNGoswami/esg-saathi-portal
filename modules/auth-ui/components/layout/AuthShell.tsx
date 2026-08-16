@@ -1,0 +1,150 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/modules/platform/auth/AuthContext";
+import { clearServerSession } from "@/modules/platform/api/sessionFetch";
+import { getPostLoginPath } from "@/modules/platform/rbac/roles";
+import { useToast } from "@/modules/platform/feedback";
+import BrandPanel from "./BrandPanel";
+import MobileHeader from "./MobileHeader";
+import OtpOnlyLogin from "../login/OtpOnlyLogin";
+import OtpOnlySignup from "../login/OtpOnlySignup";
+
+function loginPathWithoutSessionFlags(
+  searchParams: URLSearchParams,
+): string {
+  const redirect = searchParams.get("redirect");
+  return redirect
+    ? `/login?redirect=${encodeURIComponent(redirect)}`
+    : "/login";
+}
+
+export default function AuthShell() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const toast = useToast();
+  const { user, loading, refreshUser, resetClientSession } = useAuth();
+  const reauthParam = searchParams.get("reauth") === "1";
+  const signedOutParam = searchParams.get("signed_out") === "1";
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [sessionCleared, setSessionCleared] = useState(!reauthParam && !signedOutParam);
+  const [sessionNotice] = useState<"reauth" | "signed_out" | null>(() => {
+    if (reauthParam) return "reauth";
+    if (signedOutParam) return "signed_out";
+    return null;
+  });
+  const sessionNoticeToastRef = useRef(false);
+
+  useEffect(() => {
+    if (!reauthParam && !signedOutParam) return;
+
+    let cancelled = false;
+
+    (async () => {
+      resetClientSession();
+      if (signedOutParam) {
+        await clearServerSession();
+      }
+      if (cancelled) return;
+
+      if (!sessionNoticeToastRef.current) {
+        sessionNoticeToastRef.current = true;
+        if (sessionNotice === "reauth") {
+          try {
+            if (!sessionStorage.getItem("auth_reauth_notice_shown")) {
+              sessionStorage.setItem("auth_reauth_notice_shown", "1");
+              toast.info("Your session expired. Sign in to continue.");
+            }
+          } catch {
+            toast.info("Your session expired. Sign in to continue.");
+          }
+        } else if (sessionNotice === "signed_out") {
+          toast.success("You have been signed out.");
+        }
+      }
+
+      router.replace(loginPathWithoutSessionFlags(searchParams), { scroll: false });
+      setSessionCleared(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [reauthParam, signedOutParam, resetClientSession, router, searchParams, toast, sessionNotice]);
+
+  useEffect(() => {
+    if (!sessionCleared) return;
+    if (reauthParam || signedOutParam) return;
+    if (loading) return;
+
+    if (user) {
+      router.replace(getPostLoginPath(user.role, searchParams.get("redirect")));
+      return;
+    }
+
+    let cancelled = false;
+    refreshUser(true).then((fetched) => {
+      if (cancelled || !fetched) return;
+      router.replace(getPostLoginPath(fetched.role, searchParams.get("redirect")));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    sessionCleared,
+    reauthParam,
+    signedOutParam,
+    user,
+    loading,
+    refreshUser,
+    router,
+    searchParams,
+  ]);
+
+  const waitingForSessionReset = (reauthParam || signedOutParam) && !sessionCleared;
+
+  if (waitingForSessionReset || (!reauthParam && !signedOutParam && (user || loading))) {
+    return (
+      <div className="flex min-h-[calc(100dvh-60px)] items-center justify-center px-4 py-8 sm:py-12">
+        <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-[calc(100dvh-60px)] items-center justify-center px-4 py-8 sm:py-12">
+      <div className="auth-shell-card">
+        <div className="grid lg:grid-cols-[minmax(300px,420px)_1fr]">
+          <BrandPanel />
+
+          <div className="p-7 sm:p-10">
+            <MobileHeader />
+
+            <div className="mb-8 flex justify-center lg:justify-start">
+              <div className="auth-tab-track">
+                <button
+                  type="button"
+                  onClick={() => setMode("login")}
+                  className={`auth-tab ${mode === "login" ? "auth-tab--active" : ""}`}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("signup")}
+                  className={`auth-tab ${mode === "signup" ? "auth-tab--active" : ""}`}
+                >
+                  Sign up
+                </button>
+              </div>
+            </div>
+
+            {mode === "login" ? <OtpOnlyLogin /> : <OtpOnlySignup />}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
