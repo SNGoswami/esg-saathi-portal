@@ -105,21 +105,23 @@ export default function AuthShell() {
 
   if (waitingForSessionReset || (!reauthParam && !signedOutParam && (user || loading))) {
     return (
-      <div className="auth-shell flex items-center justify-center px-4 py-8 sm:py-12">
+      <div className="auth-shell">
         <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="auth-shell flex items-center justify-center px-4 py-8 sm:py-12">
+    <div className="auth-shell">
       <div className="auth-shell-card">
-        <div className="grid lg:grid-cols-[minmax(300px,420px)_1fr]">
+        <div className="auth-shell-card__grid">
           <BrandPanel />
 
-          <div className="p-7 sm:p-10">
-            <MobileHeader />
-            <OtpOnlyLogin />
+          <div className="auth-shell-card__form">
+            <div className="auth-shell-card__form-inner">
+              <MobileHeader />
+              <OtpOnlyLogin />
+            </div>
           </div>
         </div>
       </div>

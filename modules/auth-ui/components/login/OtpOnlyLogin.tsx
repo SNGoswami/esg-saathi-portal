@@ -79,8 +79,7 @@ function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
           <h2 className="text-2xl font-semibold text-[var(--color-text)]">Password updated</h2>
           <p className="mt-2 text-sm text-[var(--color-text-muted)]">You can now log in with your new password.</p>
         </div>
-        <button onClick={onBack}
-          className="flex h-12 w-full items-center justify-center rounded-2xl bg-[var(--color-primary)] text-white">
+        <button type="button" onClick={onBack} className="btn-primary w-full">
           Back to login
         </button>
       </div>
@@ -107,9 +106,10 @@ function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
         <ErrorMessage message={error} />
         <SuccessMessage message={success} />
         <button
+          type="button"
           onClick={continueFromOtp}
           disabled={status === "loading" || otpString.length < 6}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-white disabled:opacity-70"
+          className="btn-primary w-full disabled:opacity-70"
         >
           Continue
         </button>
@@ -153,9 +153,10 @@ function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
         />
         <ErrorMessage message={error} />
         <button
+          type="button"
           onClick={resetPassword}
           disabled={status === "loading"}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-white disabled:opacity-70"
+          className="btn-primary w-full disabled:opacity-70"
         >
           {status === "loading" ? <><Spinner />Updating…</> : "Update password"}
         </button>
@@ -177,8 +178,8 @@ function ForgotPasswordFlow({ onBack }: { onBack: () => void }) {
         icon={<MailIcon />} autoComplete="email" />
       <ErrorMessage message={error} />
       <SuccessMessage message={success} />
-      <button onClick={sendResetOtp} disabled={status === "loading"}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-white disabled:opacity-70">
+      <button type="button" onClick={sendResetOtp} disabled={status === "loading"}
+        className="btn-primary w-full disabled:opacity-70">
         {status === "loading" ? <><Spinner />Sending…</> : "Send reset code"}
       </button>
     </div>
@@ -311,25 +312,25 @@ export default function OtpOnlyLogin() {
 
   if (!usePassword && step === "otp") {
     return (
-      <div className="space-y-6">
-        <div className="mb-2">
-          <button onClick={resetFlow} className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]">← Back</button>
+      <div className="space-y-5">
+        <div>
+          <button type="button" onClick={resetFlow} className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]">← Back</button>
         </div>
-        <div className="text-center">
-          <h2 className="text-3xl font-semibold">Verify OTP</h2>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+        <div>
+          <h2 className="text-2xl font-semibold text-[var(--color-text)]">Verify OTP</h2>
+          <p className="mt-1.5 text-sm text-[var(--color-text-muted)]">
             Sent to <span className="font-medium text-[var(--color-text)]">{email.trim()}</span>
           </p>
         </div>
         <OtpInput otp={otp} setOtp={setOtp} inputRefs={inputRefs} />
         <ErrorMessage message={error} />
         <SuccessMessage message={success} />
-        <button onClick={verifyOtp} disabled={status === "loading"}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-white disabled:opacity-70">
+        <button type="button" onClick={verifyOtp} disabled={status === "loading"}
+          className="btn-primary w-full disabled:opacity-70">
           {status === "loading" ? <><Spinner />Verifying…</> : "Verify & Continue"}
         </button>
-        <button onClick={resendOtp} disabled={status === "loading"}
-          className="w-full text-sm underline text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-70">
+        <button type="button" onClick={resendOtp} disabled={status === "loading"}
+          className="w-full text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-70">
           Resend OTP
         </button>
       </div>
@@ -339,11 +340,11 @@ export default function OtpOnlyLogin() {
   // ── Email step (OTP or password) ──────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h2 className="text-3xl font-semibold text-[var(--color-text)]">Welcome back</h2>
-        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
-          {usePassword ? "Sign in with your email and password." : "Login securely with a one-time password."}
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--color-text)]">Welcome back</h2>
+        <p className="mt-1.5 text-sm leading-6 text-[var(--color-text-muted)]">
+          {usePassword ? "Sign in with your email and password." : "Log in securely with a one-time password."}
         </p>
       </div>
 
@@ -351,8 +352,7 @@ export default function OtpOnlyLogin() {
         value={email} onChange={(v) => { setEmail(v); setError(""); }}
         icon={<MailIcon />} autoComplete="email" />
 
-      {/* ── Password checkbox ─────────────────────────────────────────── */}
-      <label className="flex cursor-pointer items-center gap-3">
+      <label className="flex cursor-pointer items-center gap-2.5">
         <div className="relative flex-shrink-0">
           <input type="checkbox" className="sr-only" checked={usePassword}
             onChange={(e) => {
@@ -384,17 +384,18 @@ export default function OtpOnlyLogin() {
       <SuccessMessage message={success} />
 
       <button
+        type="button"
         onClick={usePassword ? loginWithPassword : sendOtp}
         disabled={status === "loading"}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--color-primary)] text-white disabled:opacity-70">
+        className="btn-primary w-full disabled:opacity-70">
         {status === "loading"
           ? <><Spinner />{usePassword ? "Signing in…" : "Sending OTP…"}</>
           : usePassword ? "Sign in" : "Continue"}
       </button>
 
       <div className="text-center">
-        <button onClick={() => setShowForgot(true)}
-          className="text-sm text-[var(--color-text-muted)] underline hover:text-[var(--color-text)]">
+        <button type="button" onClick={() => setShowForgot(true)}
+          className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]">
           Forgot password?
         </button>
       </div>

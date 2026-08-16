@@ -14,10 +14,10 @@ export default function Footer() {
               alt="ESGSaathi"
               width={130}
               height={46}
-              className="public-footer__logo h-auto w-[120px] object-contain"
+              className="public-footer__logo h-auto w-[100px] object-contain"
             />
             <p className="public-footer__brand-text">
-              ESG assessment, BRSR reporting, and sustainability workflows for Indian businesses.
+              ESG reporting and sustainability workflows for Indian businesses.
             </p>
           </div>
 
@@ -34,19 +34,13 @@ export default function Footer() {
               <Mail size={14} className="opacity-70" />
               contact@esgsaathi.in
             </a>
-            <p className="public-footer__brand-text mt-3">
-              Need help with login or your account? We&apos;d love to hear from you.
-            </p>
-            <GetInTouchButton className="btn-primary public-footer__cta inline-flex" />
+            <GetInTouchButton className="btn-primary btn-sm public-footer__cta inline-flex" />
           </div>
         </div>
       </div>
 
       <div className="container public-footer__bar">
         <span className="marketing-caption">© 2026 ESGSaathi Portal. All rights reserved.</span>
-        <span className="marketing-caption hidden sm:inline">
-          Built for Indian businesses · Environment · Social · Governance
-        </span>
       </div>
     </footer>
   );

@@ -33,7 +33,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <main className="page-main">
         <div className="page-band">
-          <Suspense fallback={<div className="auth-shell flex items-center justify-center px-4 py-16 text-sm text-[var(--color-text-muted)]">Loading…</div>}>
+          <Suspense fallback={<div className="auth-shell"><p className="text-sm text-[var(--color-text-muted)]">Loading…</p></div>}>
             <AuthShell />
           </Suspense>
         </div>
