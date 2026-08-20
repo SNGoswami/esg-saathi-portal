@@ -16,7 +16,7 @@ export default function BrandPanel() {
         </h1>
 
         <p className="mt-6 max-w-md text-sm leading-7 text-white/75">
-          Log in to your ESG dashboard, reports, AI insights and sustainability workflows.
+          Log in after your account is approved. Pending or rejected accounts cannot access the portal.
         </p>
       </div>
 

@@ -8,6 +8,7 @@ import type { RoleKey } from "@/modules/platform/rbac/roles";
 const AdminDashboardView = dynamic(() => import("@/modules/admin/ui/AdminDashboardView"));
 const AdminAnalyticsView = dynamic(() => import("@/modules/admin/ui/AdminAnalyticsView"));
 const AdminUsersView = dynamic(() => import("@/modules/admin/ui/AdminUsersView"));
+const AdminPendingUsersView = dynamic(() => import("@/modules/admin/ui/AdminPendingUsersView"));
 const ProfileView = dynamic(() => import("@/modules/account/ui/ProfileView"));
 const ClientsView = dynamic(() => import("@/modules/clients/ui/ClientsView"));
 const AssessmentView = dynamic(() => import("@/modules/lighthouse/ui/AssessmentView"));
@@ -47,6 +48,7 @@ export function resolveDashboardView(
   if (view === "ai-advisor") return <AiAdvisorView />;
   if (view === "dashboard" && role === "admin") return <AdminDashboardView key="admin-dashboard" />;
   if (view === "analytics" && role === "admin") return <AdminAnalyticsView key="admin-analytics" />;
+  if (view === "pending-users" && role === "admin") return <AdminPendingUsersView key="pending-users" />;
   if (
     role === "admin" &&
     (view === "msmes" || view === "cas" || view === "css" || view === "esgs" || view === "auditors")

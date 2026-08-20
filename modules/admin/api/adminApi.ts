@@ -78,6 +78,7 @@ export type AdminUserListItem = {
   expertiseArea: string | null;
   accreditationNo: string | null;
   active: boolean;
+  accountStatus?: "PENDING" | "ACTIVE" | "REJECTED";
   createdAt: string;
 };
 
@@ -157,4 +158,22 @@ export function listAdminUsers(role: AdminUserRole, page: number, size = ADMIN_U
   return apiFetch<AdminUserPage>(
     `/api/admin/users?role=${encodeURIComponent(role)}&page=${page}&size=${size}`,
   );
+}
+
+export function listPendingAdminUsers(page: number, size = ADMIN_USER_PAGE_SIZE) {
+  return apiFetch<AdminUserPage>(
+    `/api/admin/users/pending?page=${page}&size=${size}`,
+  );
+}
+
+export function approveAdminUser(userId: string) {
+  return apiFetch<{ message: string }>(`/api/admin/users/${encodeURIComponent(userId)}/approve`, {
+    method: "POST",
+  });
+}
+
+export function rejectAdminUser(userId: string) {
+  return apiFetch<{ message: string }>(`/api/admin/users/${encodeURIComponent(userId)}/reject`, {
+    method: "POST",
+  });
 }

@@ -117,6 +117,7 @@ const ADMIN_NAV: NavGroup[] = [
   {
     section: "Users",
     items: [
+      { label: "Pending", view: "pending-users", icon: "user-check" },
       { label: "MSMEs", view: "msmes", icon: "building-factory-2" },
       { label: "CAs", view: "cas", icon: "certificate" },
       { label: "CSs", view: "css", icon: "scale" },
@@ -176,6 +177,7 @@ export function isViewAllowedForRole(role: string, view: string): boolean {
 const VIEW_DESCRIPTIONS: Record<string, string> = {
   dashboard: "Your ESG workspace snapshot, scores, tasks, and quick access to tools.",
   analytics: "Total, active, inactive, and new users, plus role distribution.",
+  "pending-users": "New signups waiting for admin approval before they can log in.",
   msmes: "MSME users, name, sector, and sub-sector.",
   cas: "Chartered Accountants, name and ICAI member number.",
   css: "Company Secretaries, name and ICSI member number.",
