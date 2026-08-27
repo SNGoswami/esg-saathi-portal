@@ -6,22 +6,15 @@ import { useToast } from "@/modules/dashboard/components/ToastProvider";
 import { useConfirm } from "@/modules/dashboard/components/ConfirmProvider";
 import {
   ADMIN_CONTACT_PAGE_SIZE,
-  completeAdminMeeting,
-  getGoogleCalendarStatus,
   listAdminContacts,
   listAdminMeetings,
-  listPendingAdminUsers,
   listAdminWaitlist,
   sendWaitlistUpdate,
   type AdminContact,
   type AdminWaitlistEntry,
   type DemoMeeting,
-  type GoogleCalendarStatus,
-  type MeetingDecision,
 } from "@/modules/admin/api/adminApi";
-import AdminMeetingCard from "@/modules/admin/ui/AdminMeetingCard";
-import CompleteMeetingModal from "@/modules/admin/ui/CompleteMeetingModal";
-import { isMeetingToday, relativeWhen } from "@/modules/admin/ui/meetingHelpers";
+import { formatClock, relativeWhen } from "@/modules/admin/ui/meetingHelpers";
 import {
   readAdminContactsCache,
   readAdminWaitlistCache,
@@ -50,54 +43,42 @@ function readInitialDashboard() {
   };
 }
 
-function ContactCard({
+function InboxRow({
   contact,
   expanded,
-  onToggleExpand,
+  onToggle,
   onReply,
-  onCopy,
 }: {
   contact: AdminContact;
   expanded: boolean;
-  onToggleExpand: () => void;
-  onReply: (c: AdminContact) => void;
-  onCopy: (text: string) => void;
+  onToggle: () => void;
+  onReply: () => void;
 }) {
   return (
-    <article className="dash-admin-contact-card">
-      <div className="dash-admin-contact-card__body">
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.35rem" }}>
-          <span className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-            {contact.name}
-          </span>
-          {contact.replied && <span className="dash-chip dash-chip--success">Replied</span>}
+    <article className={`dash-admin-inbox__item${expanded ? " is-open" : ""}${contact.replied ? "" : " is-unread"}`}>
+      <button type="button" className="dash-admin-inbox__row" onClick={onToggle}>
+        <span className={`dash-status-dot${contact.replied ? "" : " dash-status-dot--ready"}`} aria-hidden />
+        <div className="dash-admin-inbox__main">
+          <div className="dash-admin-inbox__who">
+            <span className="dash-admin-inbox__name">{contact.name}</span>
+            <span className="dash-admin-inbox__subject">{contact.subject}</span>
+          </div>
+          <p className="dash-admin-inbox__preview">{expanded ? contact.email : contact.message}</p>
+          {expanded ? (
+            <p className="dash-admin-inbox__body">{contact.message}</p>
+          ) : null}
         </div>
-        <p className="dash-muted">{contact.email}</p>
-        <p style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--color-text)" }}>{contact.subject}</p>
-        {expanded && (
-          <p className="dash-muted" style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
-            {contact.message}
-          </p>
-        )}
-      </div>
-      <div className="dash-admin-contact-card__actions">
-        <span className="dash-muted">{formatContactDate(contact.createdAt)}</span>
-        <div className="dash-form-actions" style={{ margin: 0 }}>
-          <button type="button" className="btn-ghost btn-sm" onClick={onToggleExpand}>
-            {expanded ? "Less" : "More"}
-          </button>
-          <button type="button" className="btn-ghost btn-sm" onClick={() => onCopy(contact.email)}>
-            Copy
-          </button>
-          <button
-            type="button"
-            className="btn-primary btn-sm"
-            disabled={contact.replied}
-            onClick={() => onReply(contact)}
-          >
-            {contact.replied ? "Replied" : "Reply"}
-          </button>
-        </div>
+        <span className="dash-admin-inbox__time">{formatContactDate(contact.createdAt)}</span>
+      </button>
+      <div className="dash-admin-inbox__action">
+        <button
+          type="button"
+          className="btn-primary btn-sm"
+          disabled={contact.replied}
+          onClick={onReply}
+        >
+          {contact.replied ? "Replied" : "Reply"}
+        </button>
       </div>
     </article>
   );
@@ -122,16 +103,10 @@ export default function AdminDashboardView({
   const [replyTarget, setReplyTarget] = useState<AdminContact | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
-
   const [notifySubject, setNotifySubject] = useState("");
   const [notifyMessage, setNotifyMessage] = useState("");
   const [sendingNotify, setSendingNotify] = useState(false);
-  const [upcoming, setUpcoming] = useState<DemoMeeting[]>([]);
-  const [pendingUserCount, setPendingUserCount] = useState(0);
-  const [unbookedPending, setUnbookedPending] = useState(0);
-  const [calendar, setCalendar] = useState<GoogleCalendarStatus | null>(null);
-  const [completeMeeting, setCompleteMeeting] = useState<DemoMeeting | null>(null);
-  const [submittingMeeting, setSubmittingMeeting] = useState(false);
+  const [nextDemo, setNextDemo] = useState<DemoMeeting | null>(null);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -206,37 +181,24 @@ export default function AdminDashboardView({
     void load();
   }, [hasInitialCache, load]);
 
-  const loadMeetings = useCallback(async () => {
+  const loadNextDemo = useCallback(async () => {
     try {
-      const [scheduled, pending, status] = await Promise.all([
-        listAdminMeetings("SCHEDULED", 0, 8),
-        listPendingAdminUsers(0, 100),
-        getGoogleCalendarStatus().catch(() => ({
-          configured: false,
-          connected: false,
-          googleEmail: null,
-        })),
-      ]);
-      const nextUpcoming = [...(scheduled.content ?? [])].sort(
+      const scheduled = await listAdminMeetings("SCHEDULED", 0, 1);
+      const list = [...(scheduled.content ?? [])].sort(
         (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
       );
-      const pendingUsers = pending.content ?? [];
-      const booked = new Set(nextUpcoming.map((m) => m.userId));
-      setUpcoming(nextUpcoming);
-      setPendingUserCount(pending.totalElements ?? pendingUsers.length);
-      setUnbookedPending(pendingUsers.filter((u) => !booked.has(u.id)).length);
-      setCalendar(status);
+      setNextDemo(list[0] ?? null);
     } catch {
-      setUpcoming([]);
+      setNextDemo(null);
     }
   }, []);
 
   useEffect(() => {
-    void loadMeetings();
-  }, [loadMeetings]);
+    void loadNextDemo();
+  }, [loadNextDemo]);
 
   async function refresh() {
-    await Promise.all([load({ skipCache: true, silent: true }), loadMeetings()]);
+    await Promise.all([load({ skipCache: true, silent: true }), loadNextDemo()]);
     toast.success("Dashboard refreshed");
   }
 
@@ -292,10 +254,7 @@ export default function AdminDashboardView({
     });
   }
 
-  const pendingCount = useMemo(
-    () => contacts.filter((c) => !c.replied).length,
-    [contacts],
-  );
+  const pendingCount = useMemo(() => contacts.filter((c) => !c.replied).length, [contacts]);
 
   const filteredContacts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -307,39 +266,6 @@ export default function AdminDashboardView({
         c.subject.toLowerCase().includes(q),
     );
   }, [contacts, searchTerm]);
-
-  async function copyText(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard");
-    } catch {
-      toast.error("Failed to copy");
-    }
-  }
-
-  async function handleCompleteMeeting(payload: { conclusion: string; decision: MeetingDecision }) {
-    if (!completeMeeting) return;
-    setSubmittingMeeting(true);
-    try {
-      await completeAdminMeeting(completeMeeting.id, payload);
-      toast.success(
-        payload.decision === "APPROVE"
-          ? "Demo recorded and account approved"
-          : payload.decision === "REJECT"
-            ? "Demo recorded and account rejected"
-            : "Demo conclusion saved",
-      );
-      setCompleteMeeting(null);
-      await loadMeetings();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to record conclusion");
-    } finally {
-      setSubmittingMeeting(false);
-    }
-  }
-
-  const nextDemo = upcoming[0] ?? null;
-  const todayDemos = upcoming.filter((m) => isMeetingToday(m)).length;
 
   async function sendWaitlistNotification() {
     const subject = notifySubject.trim();
@@ -388,16 +314,26 @@ export default function AdminDashboardView({
 
   return (
     <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <div className="card card--elevated dash-welcome-card dash-admin-home-head">
         <div>
-          <p className="dash-welcome-card__eyebrow">Administrator</p>
-          <p className="dash-welcome-card__title">Contact inbox & waitlist notifications</p>
-          <p className="dash-muted" style={{ marginTop: 6 }}>
-            {loading && contacts.length === 0
-              ? "Loading…"
-              : refreshing
-                ? "Refreshing…"
-                : "Reply to contacts, run product demos, and email waitlist subscribers."}
+          <p className="dash-welcome-card__eyebrow">Admin</p>
+          <p className="dash-welcome-card__title">Inbox</p>
+          <p className="dash-admin-kpis">
+            <span>
+              {loading && contacts.length === 0
+                ? "Loading…"
+                : refreshing
+                  ? "Refreshing…"
+                  : `${pendingCount} unreplied`}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{waitlist.length} waitlist</span>
+            {nextDemo ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>Next demo {relativeWhen(nextDemo.startsAt)}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <button
@@ -411,112 +347,46 @@ export default function AdminDashboardView({
         </button>
       </div>
 
-      <div className="dash-grid-stats">
-        <div className="card card--elevated dash-score-card">
-          <span className="dash-score-card__label">Pending replies</span>
-          <p className="dash-stat-value" style={{ color: "var(--brand-700)", marginTop: 8 }}>
-            {pendingCount}
-          </p>
-          <span className="dash-score-card__delta" style={{ marginTop: "0.5rem", display: "inline-block" }}>
-            {totalContacts} total requests
-          </span>
-        </div>
-        <div className="card card--elevated dash-score-card">
-          <span className="dash-score-card__label">Waitlist</span>
-          <p className="dash-stat-value" style={{ color: "var(--brand-600)", marginTop: 8 }}>
-            {waitlist.length}
-          </p>
-          <p className="dash-muted" style={{ marginTop: "0.35rem" }}>
-            subscribers for broadcast
-          </p>
-        </div>
-        <div className="card card--elevated dash-score-card">
-          <span className="dash-score-card__label">Upcoming demos</span>
-          <p className="dash-stat-value" style={{ color: "var(--brand-700)", marginTop: 8 }}>
-            {upcoming.length}
-          </p>
-          <p className="dash-muted" style={{ marginTop: "0.35rem" }}>
-            {todayDemos} today · {unbookedPending} pending without a slot
-          </p>
-        </div>
-        <div className="card card--elevated dash-score-card">
-          <span className="dash-score-card__label">Next demo</span>
-          <p className="dash-meeting-cal-stat" style={{ marginTop: 8 }}>
-            {nextDemo ? relativeWhen(nextDemo.startsAt) : "None booked"}
-          </p>
-          <p className="dash-muted" style={{ marginTop: "0.35rem" }}>
-            {nextDemo ? nextDemo.userName || nextDemo.userEmail : `${pendingUserCount} awaiting approval`}
-          </p>
-        </div>
-      </div>
-
-      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="dash-panel-head">
+      {nextDemo ? (
+        <div className="card card--elevated dash-admin-next">
           <div>
-            <p className="dash-panel-head__title">Meeting control</p>
-            <p className="dash-muted" style={{ marginTop: 2 }}>
-              {calendar?.connected
-                ? `Calendar connected as ${calendar.googleEmail}`
-                : calendar?.configured
-                  ? "Calendar not connected — invites are email-only"
-                  : "Join, conclude, or open the full meetings board"}
+            <p className="dash-admin-next__time">{formatClock(nextDemo.startsAt)}</p>
+            <p className="dash-admin-next__title">{nextDemo.title || "Product demo"}</p>
+            <p className="dash-muted" style={{ marginTop: 4 }}>
+              {nextDemo.userName || nextDemo.userEmail} · {relativeWhen(nextDemo.startsAt)}
             </p>
           </div>
-          <button
-            type="button"
-            className="dash-panel-head__link"
-            onClick={() => onNavigateView?.("meetings")}
-          >
-            Open meetings
-          </button>
-        </div>
-        {upcoming.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 140, padding: "1.5rem 1rem" }}>
-            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              No upcoming demos
-            </p>
-            <p className="dash-muted">
-              {unbookedPending > 0
-                ? `${unbookedPending} pending user${unbookedPending === 1 ? "" : "s"} still need a slot.`
-                : "Schedule a demo from Meetings when a signup is waiting."}
-            </p>
-            <button type="button" className="btn-primary btn-sm" onClick={() => onNavigateView?.("meetings")}>
-              Schedule a demo
+          <div className="dash-admin-next__actions">
+            {nextDemo.meetLink ? (
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                onClick={() => window.open(nextDemo.meetLink ?? "", "_blank", "noopener,noreferrer")}
+              >
+                Join
+              </button>
+            ) : null}
+            <button type="button" className="btn-ghost btn-sm" onClick={() => onNavigateView?.("meetings")}>
+              Meetings
             </button>
           </div>
-        ) : (
-          <div className="dash-meeting-list dash-meeting-list--dash">
-            {upcoming.slice(0, 4).map((m) => (
-              <AdminMeetingCard
-                key={m.id}
-                meeting={m}
-                compact
-                onJoin={(meeting) => window.open(meeting.meetLink ?? "", "_blank", "noopener,noreferrer")}
-                onCopyMeet={(meeting) => {
-                  if (!meeting.meetLink) return;
-                  void copyText(meeting.meetLink);
-                }}
-                onConclude={setCompleteMeeting}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
         <div className="dash-panel-head">
           <div>
-            <p className="dash-panel-head__title">Contact requests</p>
+            <p className="dash-panel-head__title">Messages</p>
             <p className="dash-muted" style={{ marginTop: 2 }}>
-              {loading ? "Loading…" : `${filteredContacts.length} showing · ${pendingCount} unreplied`}
+              {loading ? "Loading…" : `${filteredContacts.length} of ${totalContacts}`}
             </p>
           </div>
         </div>
-        <div style={{ padding: "0 1rem 0.75rem" }}>
+        <div className="dash-admin-inbox__search">
           <input
             type="search"
             className="dash-input"
-            placeholder="Search by name, email, or subject…"
+            placeholder="Search name, email, or subject"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             disabled={loading && contacts.length === 0}
@@ -524,33 +394,29 @@ export default function AdminDashboardView({
         </div>
         {loading && contacts.length === 0 ? (
           <p className="dash-muted" style={{ padding: "1.5rem", textAlign: "center" }}>
-            Loading contacts…
+            Loading messages…
           </p>
         ) : filteredContacts.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 200, padding: "2rem 1rem" }}>
-            <div className="dash-empty__icon">
-              <i className="ti ti-mail" style={{ fontSize: 24 }} aria-hidden="true" />
-            </div>
+          <div className="dash-empty" style={{ minHeight: 160, padding: "1.75rem 1rem" }}>
             <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              {searchTerm ? "No contacts match your search" : "No contact requests yet"}
+              {searchTerm ? "No matching messages" : "No messages yet"}
             </p>
           </div>
         ) : (
-          <div className="dash-admin-contact-grid">
+          <div className="dash-admin-inbox">
             {filteredContacts.map((c) => (
-              <ContactCard
+              <InboxRow
                 key={c.id}
                 contact={c}
                 expanded={expandedIds.has(c.id)}
-                onToggleExpand={() => toggleExpanded(c.id)}
-                onReply={setReplyTarget}
-                onCopy={(text) => void copyText(text)}
+                onToggle={() => toggleExpanded(c.id)}
+                onReply={() => setReplyTarget(c)}
               />
             ))}
           </div>
         )}
         {(hasMore || contacts.length > ADMIN_CONTACT_PAGE_SIZE) && (
-          <div className="dash-form-actions" style={{ justifyContent: "center", padding: "0.75rem 1rem 1rem" }}>
+          <div className="dash-form-actions" style={{ justifyContent: "flex-end", padding: "0.625rem 1rem 0.875rem" }}>
             {contacts.length > ADMIN_CONTACT_PAGE_SIZE && (
               <button type="button" className="btn-ghost btn-sm" onClick={loadLess}>
                 Show less
@@ -570,91 +436,54 @@ export default function AdminDashboardView({
         )}
       </div>
 
-      <div className="dash-grid-admin-bottom">
-        <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="dash-panel-head">
-            <p className="dash-panel-head__title">Waitlist ({waitlist.length})</p>
-          </div>
-          <div className="dash-admin-waitlist">
-            {waitlist.length === 0 ? (
-              <p className="dash-muted" style={{ textAlign: "center", padding: "1.5rem 0" }}>
-                No waitlist entries
-              </p>
-            ) : (
-              waitlist.map((w, i) => (
-                <div key={w.id} className="dash-admin-waitlist__row">
-                  <span className="dash-admin-waitlist__index">{i + 1}</span>
-                  <span className="dash-muted" style={{ flex: 1, wordBreak: "break-all", fontSize: "0.75rem", color: "var(--color-text)" }}>
-                    {w.email}
-                  </span>
-                  <button type="button" className="btn-ghost btn-sm" onClick={() => void copyText(w.email)}>
-                    Copy
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="card card--elevated dash-form-stack">
-          <p className="dash-section-title">Notify all (waitlist)</p>
-          <p className="dash-muted">
-            Send one email to every waitlist subscriber ({waitlist.length} recipient
-            {waitlist.length !== 1 ? "s" : ""}).
+      <div className="card card--elevated dash-form-stack">
+        <div>
+          <p className="dash-section-title">Waitlist update</p>
+          <p className="dash-muted" style={{ marginTop: 4 }}>
+            One email to {waitlist.length} subscriber{waitlist.length !== 1 ? "s" : ""}.
           </p>
-          <div>
-            <label className="dash-label">Subject</label>
-            <input
-              type="text"
-              className="dash-input"
-              value={notifySubject}
-              onChange={(e) => setNotifySubject(e.target.value)}
-              placeholder="e.g. ESG Saathi launch update"
-            />
-          </div>
-          <div>
-            <label className="dash-label">Message</label>
-            <textarea
-              className="dash-input dash-advisor__textarea"
-              value={notifyMessage}
-              onChange={(e) => setNotifyMessage(e.target.value)}
-              placeholder="Write your update… (Ctrl+Enter to send)"
-              rows={6}
-              onKeyDown={(e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                  e.preventDefault();
-                  void sendWaitlistNotification();
-                }
-              }}
-            />
-          </div>
-          <button
-            type="button"
-            className="btn-primary btn-sm"
-            style={{ alignSelf: "flex-start" }}
-            disabled={sendingNotify || !notifySubject.trim() || !notifyMessage.trim() || waitlist.length === 0}
-            onClick={() => void sendWaitlistNotification()}
-          >
-            {sendingNotify ? "Sending…" : `Send to ${waitlist.length} users`}
-          </button>
-          {waitlist.length === 0 && (
-            <p className="dash-muted" style={{ color: "#d97706" }}>
-              Add waitlist subscribers before sending a broadcast.
-            </p>
-          )}
         </div>
+        <div>
+          <label className="dash-label">Subject</label>
+          <input
+            type="text"
+            className="dash-input"
+            value={notifySubject}
+            onChange={(e) => setNotifySubject(e.target.value)}
+            placeholder="Launch update"
+          />
+        </div>
+        <div>
+          <label className="dash-label">Message</label>
+          <textarea
+            className="dash-input dash-advisor__textarea"
+            value={notifyMessage}
+            onChange={(e) => setNotifyMessage(e.target.value)}
+            placeholder="Write the update…"
+            rows={5}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                void sendWaitlistNotification();
+              }
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          className="btn-primary btn-sm"
+          style={{ alignSelf: "flex-start" }}
+          disabled={sendingNotify || !notifySubject.trim() || !notifyMessage.trim() || waitlist.length === 0}
+          onClick={() => void sendWaitlistNotification()}
+        >
+          {sendingNotify ? "Sending…" : "Send"}
+        </button>
       </div>
 
       <AdminReplyModal
         contact={replyTarget}
         onClose={() => setReplyTarget(null)}
         onSent={handleReplied}
-      />
-      <CompleteMeetingModal
-        meeting={completeMeeting}
-        submitting={submittingMeeting}
-        onClose={() => setCompleteMeeting(null)}
-        onSubmit={handleCompleteMeeting}
       />
     </div>
   );

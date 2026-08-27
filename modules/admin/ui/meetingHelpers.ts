@@ -22,13 +22,6 @@ export function formatClock(iso: string) {
   }
 }
 
-export function durationMinutes(meeting: Pick<DemoMeeting, "startsAt" | "endsAt">) {
-  const mins = Math.round(
-    (new Date(meeting.endsAt).getTime() - new Date(meeting.startsAt).getTime()) / 60000,
-  );
-  return Math.max(mins, 0);
-}
-
 export function isSameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -41,10 +34,6 @@ export function isMeetingLive(meeting: Pick<DemoMeeting, "startsAt" | "endsAt" |
   if (meeting.status !== "SCHEDULED") return false;
   const now = Date.now();
   return new Date(meeting.startsAt).getTime() <= now && now <= new Date(meeting.endsAt).getTime();
-}
-
-export function isMeetingToday(meeting: Pick<DemoMeeting, "startsAt">, now = new Date()) {
-  return isSameDay(new Date(meeting.startsAt), now);
 }
 
 export function relativeWhen(iso: string, now = new Date()) {
@@ -86,8 +75,3 @@ export function decisionLabel(decision: MeetingDecision | null | undefined) {
   return null;
 }
 
-export function inviteChannel(meeting: Pick<DemoMeeting, "meetLink" | "googleSynced">) {
-  if (meeting.meetLink) return "Google Meet";
-  if (meeting.googleSynced) return "Calendar";
-  return "Email only";
-}

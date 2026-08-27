@@ -212,7 +212,7 @@ const VIEW_DESCRIPTIONS: Record<string, string> = {
 
 export function viewDescription(view: string, role?: string): string {
   if (view === "dashboard" && role === "admin") {
-    return "Contact inbox, waitlist broadcast, and platform overview.";
+    return "Inbox, next demo, and waitlist updates.";
   }
   if (view === "dashboard") {
     return VIEW_DESCRIPTIONS.dashboard;
