@@ -9,6 +9,7 @@ const AdminDashboardView = dynamic(() => import("@/modules/admin/ui/AdminDashboa
 const AdminAnalyticsView = dynamic(() => import("@/modules/admin/ui/AdminAnalyticsView"));
 const AdminUsersView = dynamic(() => import("@/modules/admin/ui/AdminUsersView"));
 const AdminPendingUsersView = dynamic(() => import("@/modules/admin/ui/AdminPendingUsersView"));
+const AdminMeetingsView = dynamic(() => import("@/modules/admin/ui/AdminMeetingsView"));
 const ProfileView = dynamic(() => import("@/modules/account/ui/ProfileView"));
 const ClientsView = dynamic(() => import("@/modules/clients/ui/ClientsView"));
 const AssessmentView = dynamic(() => import("@/modules/lighthouse/ui/AssessmentView"));
@@ -46,9 +47,12 @@ export function resolveDashboardView(
     return <ReportsView onNavigateToAssessment={onNavigateToAssessment} />;
   if (view === "settings") return <SettingsView />;
   if (view === "ai-advisor") return <AiAdvisorView />;
-  if (view === "dashboard" && role === "admin") return <AdminDashboardView key="admin-dashboard" />;
+  if (view === "dashboard" && role === "admin") {
+    return <AdminDashboardView key="admin-dashboard" onNavigateView={onNavigateView} />;
+  }
   if (view === "analytics" && role === "admin") return <AdminAnalyticsView key="admin-analytics" />;
   if (view === "pending-users" && role === "admin") return <AdminPendingUsersView key="pending-users" />;
+  if (view === "meetings" && role === "admin") return <AdminMeetingsView key="meetings" />;
   if (
     role === "admin" &&
     (view === "msmes" || view === "cas" || view === "css" || view === "esgs" || view === "auditors")

@@ -2945,6 +2945,27 @@
     color: #d97706;
   }
 
+  .dash-chip--danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+  }
+
+  .dash-chip--live {
+    background: rgba(16, 185, 129, 0.16);
+    color: #059669;
+    animation: dash-live-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes dash-live-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.65;
+    }
+  }
+
   .dash-settings-grid {
     display: grid;
     gap: 0.875rem;
@@ -6799,6 +6820,250 @@
     }
   }
 
+  .dash-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    display: inline-block;
+    flex-shrink: 0;
+    background: var(--color-text-muted);
+  }
+
+  .dash-status-dot--connected {
+    background: #10b981;
+  }
+
+  .dash-status-dot--ready {
+    background: #f59e0b;
+  }
+
+  .dash-status-dot--missing {
+    background: #ef4444;
+  }
+
+  .dash-status-dot--checking {
+    background: var(--color-text-muted);
+  }
+
+  .dash-meeting-cal-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .dash-meeting-cal {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .dash-meeting-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .dash-meeting-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .dash-meeting-filters__btn {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .dash-meeting-filters__btn.is-active {
+    background: var(--brand-tint-bg);
+    border-color: var(--brand-tint-15);
+    color: var(--brand-700);
+  }
+
+  .dash-meeting-pending {
+    margin-top: 0.875rem;
+  }
+
+  .dash-meeting-pending__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+  }
+
+  .dash-meeting-pending__chip {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .dash-meeting-pending__chip:hover {
+    border-color: var(--brand-tint-15);
+    background: var(--brand-tint-bg);
+  }
+
+  .dash-meeting-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0 1rem 1rem;
+  }
+
+  .dash-meeting-list--dash {
+    padding-top: 0;
+  }
+
+  .dash-meeting-card {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+    padding: 0.8rem 0.875rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .dash-meeting-card--live {
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+  }
+
+  .dash-meeting-card__when {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding-top: 0.1rem;
+  }
+
+  .dash-meeting-card__clock {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.02em;
+  }
+
+  .dash-meeting-card__topline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dash-meeting-card__guest {
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    color: var(--color-text);
+  }
+
+  .dash-meeting-card__meta,
+  .dash-meeting-card__notes {
+    margin: 0.2rem 0 0;
+    font-size: 0.6875rem;
+  }
+
+  .dash-meeting-card__title {
+    margin: 0.3rem 0 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  .dash-meeting-card__notes {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dash-meeting-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.45rem;
+  }
+
+  .dash-meeting-card__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .dash-meeting-decisions {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .dash-meeting-card {
+      grid-template-columns: 4.75rem minmax(0, 1fr);
+    }
+
+    .dash-meeting-decisions {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .dash-meeting-decisions__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .dash-meeting-decisions__btn strong {
+    font-size: 0.75rem;
+    color: var(--color-text);
+  }
+
+  .dash-meeting-decisions__btn.is-active {
+    border-color: var(--brand-tint-15);
+    background: var(--brand-tint-bg);
+  }
+
+  .dash-meeting-decisions__btn.is-success.is-active {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(16, 185, 129, 0.1);
+  }
+
+  .dash-meeting-decisions__btn.is-danger.is-active {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.1);
+  }
+
   /* â”€â”€ Profile (account details) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   .profile-page-root {
     width: 100%;
@@ -9950,6 +10215,26 @@
 
     .dash-admin-contact-card__actions .btn-primary,
     .dash-admin-contact-card__actions .btn-ghost {
+      width: 100%;
+      justify-content: center;
+    }
+
+    .dash-meeting-card {
+      grid-template-columns: 1fr;
+    }
+
+    .dash-meeting-card__actions .btn-primary,
+    .dash-meeting-card__actions .btn-ghost {
+      flex: 1 1 calc(50% - 0.35rem);
+      justify-content: center;
+    }
+
+    .dash-meeting-toolbar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .dash-meeting-toolbar .btn-primary {
       width: 100%;
       justify-content: center;
     }

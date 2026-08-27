@@ -177,3 +177,98 @@ export function rejectAdminUser(userId: string) {
     method: "POST",
   });
 }
+
+export type DemoMeetingStatus = "SCHEDULED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";
+export type MeetingDecision = "DEFER" | "APPROVE" | "REJECT";
+
+export type DemoMeeting = {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  userRole: AdminUserRole | string | null;
+  accountStatus: "PENDING" | "ACTIVE" | "REJECTED" | null;
+  scheduledBy: string;
+  title: string;
+  notes: string | null;
+  startsAt: string;
+  endsAt: string;
+  status: DemoMeetingStatus;
+  googleEventId: string | null;
+  calendarHtmlLink: string | null;
+  meetLink: string | null;
+  googleSynced: boolean;
+  conclusion: string | null;
+  decision: MeetingDecision | null;
+  createdAt: string;
+};
+
+export type DemoMeetingPage = {
+  content: DemoMeeting[];
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+};
+
+export type GoogleCalendarStatus = {
+  configured: boolean;
+  connected: boolean;
+  googleEmail: string | null;
+};
+
+export type ScheduleMeetingPayload = {
+  userId: string;
+  startsAt: string;
+  durationMinutes: number;
+  title?: string;
+  notes?: string;
+};
+
+export function getGoogleCalendarStatus() {
+  return apiFetch<GoogleCalendarStatus>("/api/admin/google/status");
+}
+
+export function getGoogleCalendarConnectUrl() {
+  return apiFetch<{ url: string }>("/api/admin/google/connect");
+}
+
+export function disconnectGoogleCalendar() {
+  return apiFetch<{ message: string }>("/api/admin/google/disconnect", { method: "DELETE" });
+}
+
+export function listAdminMeetings(status: DemoMeetingStatus | "ALL", page: number, size = ADMIN_USER_PAGE_SIZE) {
+  const q = status === "ALL" ? "" : `status=${encodeURIComponent(status)}&`;
+  return apiFetch<DemoMeetingPage>(`/api/admin/meetings?${q}page=${page}&size=${size}`);
+}
+
+export function scheduleAdminMeeting(payload: ScheduleMeetingPayload) {
+  return apiFetch<DemoMeeting>("/api/admin/meetings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function rescheduleAdminMeeting(meetingId: string, payload: ScheduleMeetingPayload) {
+  return apiFetch<DemoMeeting>(`/api/admin/meetings/${encodeURIComponent(meetingId)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function cancelAdminMeeting(meetingId: string) {
+  return apiFetch<DemoMeeting>(`/api/admin/meetings/${encodeURIComponent(meetingId)}/cancel`, {
+    method: "POST",
+  });
+}
+
+export function completeAdminMeeting(
+  meetingId: string,
+  payload: { conclusion: string; decision: MeetingDecision },
+) {
+  return apiFetch<DemoMeeting>(`/api/admin/meetings/${encodeURIComponent(meetingId)}/complete`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

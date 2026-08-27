@@ -4,14 +4,22 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ADMIN_ROLE_LABELS,
   approveAdminUser,
+  completeAdminMeeting,
+  listAdminMeetings,
   listPendingAdminUsers,
   rejectAdminUser,
+  rescheduleAdminMeeting,
+  scheduleAdminMeeting,
   type AdminUserListItem,
   type AdminUserRole,
+  type DemoMeeting,
+  type MeetingDecision,
 } from "@/modules/admin/api/adminApi";
 import { useToast } from "@/modules/dashboard/components/ToastProvider";
 import { useConfirm } from "@/modules/dashboard/components/ConfirmProvider";
 import { useToastOnValue } from "@/modules/dashboard/hooks/useToastOnValue";
+import ScheduleMeetingModal from "@/modules/admin/ui/ScheduleMeetingModal";
+import CompleteMeetingModal from "@/modules/admin/ui/CompleteMeetingModal";
 
 function displayValue(value: string | null | undefined) {
   const v = value?.trim();
@@ -33,8 +41,22 @@ export default function AdminPendingUsersView() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [scheduled, setScheduled] = useState<DemoMeeting[]>([]);
+  const [scheduleUser, setScheduleUser] = useState<AdminUserListItem | null>(null);
+  const [rescheduleMeeting, setRescheduleMeeting] = useState<DemoMeeting | null>(null);
+  const [completeMeeting, setCompleteMeeting] = useState<DemoMeeting | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   useToastOnValue(error, "error");
+
+  const loadMeetings = useCallback(async () => {
+    try {
+      const result = await listAdminMeetings("SCHEDULED", 0, 100);
+      setScheduled(result.content ?? []);
+    } catch {
+      setScheduled([]);
+    }
+  }, []);
 
   const load = useCallback(async (targetPage: number, options?: { silent?: boolean }) => {
     if (!options?.silent) setLoading(true);
@@ -54,7 +76,8 @@ export default function AdminPendingUsersView() {
 
   useEffect(() => {
     void load(0);
-  }, [load]);
+    void loadMeetings();
+  }, [load, loadMeetings]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -64,6 +87,57 @@ export default function AdminPendingUsersView() {
       return hay.includes(q);
     });
   }, [users, search]);
+
+  const meetingByUser = useMemo(() => {
+    const map = new Map<string, DemoMeeting>();
+    for (const m of scheduled) map.set(m.userId, m);
+    return map;
+  }, [scheduled]);
+
+  async function handleSchedule(payload: Parameters<typeof scheduleAdminMeeting>[0]) {
+    setSubmitting(true);
+    setError("");
+    try {
+      if (rescheduleMeeting) {
+        await rescheduleAdminMeeting(rescheduleMeeting.id, payload);
+        toast.show("Meeting updated", "success");
+      } else {
+        await scheduleAdminMeeting(payload);
+        toast.show("Demo invite sent", "success");
+      }
+      setScheduleUser(null);
+      setRescheduleMeeting(null);
+      await loadMeetings();
+    } catch (ex: unknown) {
+      setError(ex instanceof Error ? ex.message : "Failed to save meeting");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleComplete(payload: { conclusion: string; decision: MeetingDecision }) {
+    if (!completeMeeting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await completeAdminMeeting(completeMeeting.id, payload);
+      toast.show(
+        payload.decision === "APPROVE"
+          ? "Demo recorded and account approved"
+          : payload.decision === "REJECT"
+            ? "Demo recorded and account rejected"
+            : "Demo conclusion saved",
+        "success",
+      );
+      setCompleteMeeting(null);
+      await loadMeetings();
+      await load(page, { silent: true });
+    } catch (ex: unknown) {
+      setError(ex instanceof Error ? ex.message : "Failed to record conclusion");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function decide(user: AdminUserListItem, action: "approve" | "reject") {
     const isApprove = action === "approve";
@@ -89,6 +163,7 @@ export default function AdminPendingUsersView() {
       }
       const nextPage = users.length <= 1 && page > 0 ? page - 1 : page;
       await load(nextPage, { silent: true });
+      await loadMeetings();
     } catch (ex: unknown) {
       setError(ex instanceof Error ? ex.message : `Failed to ${action} user`);
     } finally {
@@ -107,7 +182,7 @@ export default function AdminPendingUsersView() {
             : loading
               ? "Updating…"
               : `${totalElements} awaiting review`}{" "}
-          · Approve to grant portal access · Reject to block login
+          · Schedule a demo, then approve or reject from the meeting conclusion
         </p>
       </div>
 
@@ -141,6 +216,7 @@ export default function AdminPendingUsersView() {
                   <th>Name</th>
                   <th>Role</th>
                   <th>Status</th>
+                  <th>Demo</th>
                   <th>Joined</th>
                   <th>Actions</th>
                 </tr>
@@ -158,6 +234,14 @@ export default function AdminPendingUsersView() {
                     <td data-label="Status">
                       <span className="dash-chip dash-chip--warning">Pending</span>
                     </td>
+                    <td data-label="Demo">
+                      {meetingByUser.get(u.id)
+                        ? new Date(meetingByUser.get(u.id)!.startsAt).toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })
+                        : "—"}
+                    </td>
                     <td data-label="Joined">
                       {u.createdAt
                         ? new Date(u.createdAt).toLocaleDateString(undefined, {
@@ -167,6 +251,38 @@ export default function AdminPendingUsersView() {
                     </td>
                     <td data-label="Actions">
                       <div className="dash-form-actions" style={{ margin: 0 }}>
+                        {meetingByUser.get(u.id) ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn-ghost btn-sm"
+                              disabled={actingId === u.id || loading}
+                              onClick={() => {
+                                setRescheduleMeeting(meetingByUser.get(u.id)!);
+                                setScheduleUser(u);
+                              }}
+                            >
+                              Reschedule
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-ghost btn-sm"
+                              disabled={actingId === u.id || loading}
+                              onClick={() => setCompleteMeeting(meetingByUser.get(u.id)!)}
+                            >
+                              Conclude
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-ghost btn-sm"
+                            disabled={actingId === u.id || loading}
+                            onClick={() => setScheduleUser(u)}
+                          >
+                            Schedule demo
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="btn-ghost btn-sm"
@@ -225,6 +341,24 @@ export default function AdminPendingUsersView() {
           </div>
         )}
       </div>
+
+      <ScheduleMeetingModal
+        open={Boolean(scheduleUser)}
+        user={scheduleUser}
+        meeting={rescheduleMeeting}
+        submitting={submitting}
+        onClose={() => {
+          setScheduleUser(null);
+          setRescheduleMeeting(null);
+        }}
+        onSubmit={handleSchedule}
+      />
+      <CompleteMeetingModal
+        meeting={completeMeeting}
+        submitting={submitting}
+        onClose={() => setCompleteMeeting(null)}
+        onSubmit={handleComplete}
+      />
     </div>
   );
 }

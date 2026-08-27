@@ -6,12 +6,22 @@ import { useToast } from "@/modules/dashboard/components/ToastProvider";
 import { useConfirm } from "@/modules/dashboard/components/ConfirmProvider";
 import {
   ADMIN_CONTACT_PAGE_SIZE,
+  completeAdminMeeting,
+  getGoogleCalendarStatus,
   listAdminContacts,
+  listAdminMeetings,
+  listPendingAdminUsers,
   listAdminWaitlist,
   sendWaitlistUpdate,
   type AdminContact,
   type AdminWaitlistEntry,
+  type DemoMeeting,
+  type GoogleCalendarStatus,
+  type MeetingDecision,
 } from "@/modules/admin/api/adminApi";
+import AdminMeetingCard from "@/modules/admin/ui/AdminMeetingCard";
+import CompleteMeetingModal from "@/modules/admin/ui/CompleteMeetingModal";
+import { isMeetingToday, relativeWhen } from "@/modules/admin/ui/meetingHelpers";
 import {
   readAdminContactsCache,
   readAdminWaitlistCache,
@@ -93,7 +103,11 @@ function ContactCard({
   );
 }
 
-export default function AdminDashboardView() {
+export default function AdminDashboardView({
+  onNavigateView,
+}: {
+  onNavigateView?: (view: string) => void;
+}) {
   const initial = readInitialDashboard();
   const hasInitialCache = initial.contacts !== null && initial.waitlist !== null;
 
@@ -112,6 +126,12 @@ export default function AdminDashboardView() {
   const [notifySubject, setNotifySubject] = useState("");
   const [notifyMessage, setNotifyMessage] = useState("");
   const [sendingNotify, setSendingNotify] = useState(false);
+  const [upcoming, setUpcoming] = useState<DemoMeeting[]>([]);
+  const [pendingUserCount, setPendingUserCount] = useState(0);
+  const [unbookedPending, setUnbookedPending] = useState(0);
+  const [calendar, setCalendar] = useState<GoogleCalendarStatus | null>(null);
+  const [completeMeeting, setCompleteMeeting] = useState<DemoMeeting | null>(null);
+  const [submittingMeeting, setSubmittingMeeting] = useState(false);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -186,8 +206,37 @@ export default function AdminDashboardView() {
     void load();
   }, [hasInitialCache, load]);
 
+  const loadMeetings = useCallback(async () => {
+    try {
+      const [scheduled, pending, status] = await Promise.all([
+        listAdminMeetings("SCHEDULED", 0, 8),
+        listPendingAdminUsers(0, 100),
+        getGoogleCalendarStatus().catch(() => ({
+          configured: false,
+          connected: false,
+          googleEmail: null,
+        })),
+      ]);
+      const nextUpcoming = [...(scheduled.content ?? [])].sort(
+        (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+      );
+      const pendingUsers = pending.content ?? [];
+      const booked = new Set(nextUpcoming.map((m) => m.userId));
+      setUpcoming(nextUpcoming);
+      setPendingUserCount(pending.totalElements ?? pendingUsers.length);
+      setUnbookedPending(pendingUsers.filter((u) => !booked.has(u.id)).length);
+      setCalendar(status);
+    } catch {
+      setUpcoming([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadMeetings();
+  }, [loadMeetings]);
+
   async function refresh() {
-    await load({ skipCache: true, silent: true });
+    await Promise.all([load({ skipCache: true, silent: true }), loadMeetings()]);
     toast.success("Dashboard refreshed");
   }
 
@@ -268,6 +317,30 @@ export default function AdminDashboardView() {
     }
   }
 
+  async function handleCompleteMeeting(payload: { conclusion: string; decision: MeetingDecision }) {
+    if (!completeMeeting) return;
+    setSubmittingMeeting(true);
+    try {
+      await completeAdminMeeting(completeMeeting.id, payload);
+      toast.success(
+        payload.decision === "APPROVE"
+          ? "Demo recorded and account approved"
+          : payload.decision === "REJECT"
+            ? "Demo recorded and account rejected"
+            : "Demo conclusion saved",
+      );
+      setCompleteMeeting(null);
+      await loadMeetings();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to record conclusion");
+    } finally {
+      setSubmittingMeeting(false);
+    }
+  }
+
+  const nextDemo = upcoming[0] ?? null;
+  const todayDemos = upcoming.filter((m) => isMeetingToday(m)).length;
+
   async function sendWaitlistNotification() {
     const subject = notifySubject.trim();
     const message = notifyMessage.trim();
@@ -324,7 +397,7 @@ export default function AdminDashboardView() {
               ? "Loading…"
               : refreshing
                 ? "Refreshing…"
-                : "Reply to contact form submissions and email all waitlist subscribers."}
+                : "Reply to contacts, run product demos, and email waitlist subscribers."}
           </p>
         </div>
         <button
@@ -357,6 +430,77 @@ export default function AdminDashboardView() {
             subscribers for broadcast
           </p>
         </div>
+        <div className="card card--elevated dash-score-card">
+          <span className="dash-score-card__label">Upcoming demos</span>
+          <p className="dash-stat-value" style={{ color: "var(--brand-700)", marginTop: 8 }}>
+            {upcoming.length}
+          </p>
+          <p className="dash-muted" style={{ marginTop: "0.35rem" }}>
+            {todayDemos} today · {unbookedPending} pending without a slot
+          </p>
+        </div>
+        <div className="card card--elevated dash-score-card">
+          <span className="dash-score-card__label">Next demo</span>
+          <p className="dash-meeting-cal-stat" style={{ marginTop: 8 }}>
+            {nextDemo ? relativeWhen(nextDemo.startsAt) : "None booked"}
+          </p>
+          <p className="dash-muted" style={{ marginTop: "0.35rem" }}>
+            {nextDemo ? nextDemo.userName || nextDemo.userEmail : `${pendingUserCount} awaiting approval`}
+          </p>
+        </div>
+      </div>
+
+      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
+        <div className="dash-panel-head">
+          <div>
+            <p className="dash-panel-head__title">Meeting control</p>
+            <p className="dash-muted" style={{ marginTop: 2 }}>
+              {calendar?.connected
+                ? `Calendar connected as ${calendar.googleEmail}`
+                : calendar?.configured
+                  ? "Calendar not connected — invites are email-only"
+                  : "Join, conclude, or open the full meetings board"}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="dash-panel-head__link"
+            onClick={() => onNavigateView?.("meetings")}
+          >
+            Open meetings
+          </button>
+        </div>
+        {upcoming.length === 0 ? (
+          <div className="dash-empty" style={{ minHeight: 140, padding: "1.5rem 1rem" }}>
+            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
+              No upcoming demos
+            </p>
+            <p className="dash-muted">
+              {unbookedPending > 0
+                ? `${unbookedPending} pending user${unbookedPending === 1 ? "" : "s"} still need a slot.`
+                : "Schedule a demo from Meetings when a signup is waiting."}
+            </p>
+            <button type="button" className="btn-primary btn-sm" onClick={() => onNavigateView?.("meetings")}>
+              Schedule a demo
+            </button>
+          </div>
+        ) : (
+          <div className="dash-meeting-list dash-meeting-list--dash">
+            {upcoming.slice(0, 4).map((m) => (
+              <AdminMeetingCard
+                key={m.id}
+                meeting={m}
+                compact
+                onJoin={(meeting) => window.open(meeting.meetLink ?? "", "_blank", "noopener,noreferrer")}
+                onCopyMeet={(meeting) => {
+                  if (!meeting.meetLink) return;
+                  void copyText(meeting.meetLink);
+                }}
+                onConclude={setCompleteMeeting}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
@@ -505,6 +649,12 @@ export default function AdminDashboardView() {
         contact={replyTarget}
         onClose={() => setReplyTarget(null)}
         onSent={handleReplied}
+      />
+      <CompleteMeetingModal
+        meeting={completeMeeting}
+        submitting={submittingMeeting}
+        onClose={() => setCompleteMeeting(null)}
+        onSubmit={handleCompleteMeeting}
       />
     </div>
   );
