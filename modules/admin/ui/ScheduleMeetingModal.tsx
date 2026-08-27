@@ -61,11 +61,12 @@ export default function ScheduleMeetingModal({
   }, [open, meeting]);
 
   if (!open || !user) return null;
+  const guest = user;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     await onSubmit({
-      userId: user.id,
+      userId: guest.id,
       startsAt: datetimeLocalToIso(startsAt),
       durationMinutes,
       title: title.trim() || undefined,
