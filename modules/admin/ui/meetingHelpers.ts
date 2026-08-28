@@ -22,6 +22,25 @@ export function formatClock(iso: string) {
   }
 }
 
+export function startOfWeek(date: Date) {
+  const x = new Date(date);
+  x.setHours(0, 0, 0, 0);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+
+export function addDays(date: Date, days: number) {
+  const x = new Date(date);
+  x.setDate(x.getDate() + days);
+  return x;
+}
+
+export function weekDays(weekStart: Date) {
+  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+}
+
 export function isSameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&

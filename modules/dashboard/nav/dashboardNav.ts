@@ -179,7 +179,7 @@ const VIEW_DESCRIPTIONS: Record<string, string> = {
   dashboard: "Your ESG workspace snapshot, scores, tasks, and quick access to tools.",
   analytics: "Total, active, inactive, and new users, plus role distribution.",
   "pending-users": "New signups waiting for admin approval before they can log in.",
-  meetings: "Join, reschedule, and conclude product demos. Connect Google Calendar for Meet links.",
+  meetings: "Week calendar for product demos. Click a block to join, or an empty slot to book.",
   msmes: "MSME users, name, sector, and sub-sector.",
   cas: "Chartered Accountants, name and ICAI member number.",
   css: "Company Secretaries, name and ICSI member number.",

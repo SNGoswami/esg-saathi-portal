@@ -28,6 +28,7 @@ type ScheduleMeetingModalProps = {
   user: Guest | null;
   guests?: Guest[];
   meeting?: DemoMeeting | null;
+  presetStartsAt?: string;
   submitting: boolean;
   onClose: () => void;
   onSubmit: (payload: ScheduleMeetingPayload) => Promise<void>;
@@ -57,6 +58,7 @@ export default function ScheduleMeetingModal({
   user,
   guests = [],
   meeting,
+  presetStartsAt,
   submitting,
   onClose,
   onSubmit,
@@ -74,7 +76,7 @@ export default function ScheduleMeetingModal({
   useEffect(() => {
     if (!open) return;
     setGuestId(user?.id ?? "");
-    setStartsAt(toDatetimeLocalValue(meeting?.startsAt));
+    setStartsAt(toDatetimeLocalValue(meeting?.startsAt ?? presetStartsAt));
     setTitle(meeting?.title?.trim() || subjectFor(DEFAULT_SUBJECT, user));
     setTitleDirty(Boolean(meeting?.title));
     if (meeting?.startsAt && meeting?.endsAt) {
@@ -86,7 +88,7 @@ export default function ScheduleMeetingModal({
     } else {
       setDurationMinutes(30);
     }
-  }, [open, user, meeting]);
+  }, [open, user, meeting, presetStartsAt]);
 
   useEffect(() => {
     if (!open || titleDirty || meeting) return;
