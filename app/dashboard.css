@@ -7056,7 +7056,7 @@
     --week-hours: 12;
     display: grid;
     grid-template-columns: 3.25rem repeat(7, minmax(6.5rem, 1fr));
-    grid-template-rows: auto repeat(var(--week-hours), 52px);
+    grid-template-rows: auto repeat(var(--week-hours), 72px);
     min-width: 52rem;
   }
 
@@ -7134,9 +7134,9 @@
     background-image: repeating-linear-gradient(
       to bottom,
       transparent,
-      transparent 51px,
-      var(--color-border) 51px,
-      var(--color-border) 52px
+      transparent 71px,
+      var(--color-border) 71px,
+      var(--color-border) 72px
     );
   }
 
@@ -7182,21 +7182,32 @@
     z-index: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    gap: 0.05rem;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.1rem;
     overflow: hidden;
+    min-width: 0;
     border: 0;
-    border-radius: 4px;
-    padding: 0.28rem 0.4rem;
+    border-radius: 6px;
+    padding: 0.35rem 0.45rem;
     background: var(--brand-700);
     color: #fff;
     text-align: left;
     cursor: pointer;
+    font-family: inherit;
+    line-height: 1.25;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .dash-week-cal__event.is-compact {
+    flex-direction: row;
+    align-items: center;
+    padding: 0.2rem 0.4rem;
   }
 
   .dash-week-cal__event:hover {
     filter: brightness(1.06);
+    z-index: 4;
   }
 
   .dash-week-cal__event.is-done {
@@ -7212,26 +7223,31 @@
 
   .dash-week-cal__event.is-selected {
     box-shadow: 0 0 0 2px var(--color-text);
+    z-index: 4;
+  }
+
+  .dash-week-cal__event-time,
+  .dash-week-cal__event-guest,
+  .dash-week-cal__event-title {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    flex: 0 0 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dash-week-cal__event-time,
   .dash-week-cal__event-guest {
-    font-size: 0.625rem;
-    opacity: 0.9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
+    font-size: 0.6875rem;
+    opacity: 0.92;
   }
 
   .dash-week-cal__event-title {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    line-height: 1.2;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    line-height: 1.25;
   }
 
   .dash-week-cal__detail {

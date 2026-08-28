@@ -11,7 +11,7 @@ import {
   weekDays,
 } from "@/modules/admin/ui/meetingHelpers";
 
-const PX = 52;
+const PX = 72;
 const DEFAULT_START = 8;
 const DEFAULT_END = 20;
 const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "short" });
@@ -61,7 +61,7 @@ function layoutForDay(
       const startH = start.getHours() + start.getMinutes() / 60;
       const endH = end.getHours() + end.getMinutes() / 60;
       const from = Math.max(startH - startHour, 0);
-      const to = Math.max(endH - startHour, from + 0.35);
+      const to = Math.max(endH - startHour, from + 0.5);
       return { meeting, from, to };
     })
     .sort((a, b) => a.from - b.from || a.to - b.to);
@@ -81,7 +81,7 @@ function layoutForDay(
   return placed.map((item) => ({
     meeting: item.meeting,
     top: item.from * px,
-    height: Math.max((item.to - item.from) * px - 3, 24),
+    height: Math.max((item.to - item.from) * px - 4, 44),
     col: item.col,
     colCount,
   }));
@@ -231,26 +231,35 @@ export default function AdminMeetingWeekCalendar({
                   const live = isMeetingLive(item.meeting);
                   const done = item.meeting.status === "COMPLETED";
                   const selected = item.meeting.id === selectedId;
-                  const width = `calc((100% - 6px) / ${item.colCount})`;
-                  const left = `calc(${item.col} * (100% - 6px) / ${item.colCount} + 3px)`;
+                  const compact = item.height < 56;
+                  const title = item.meeting.title || "Product demo";
+                  const guest = item.meeting.userName || item.meeting.userEmail || "Guest";
+                  const time = formatClock(item.meeting.startsAt);
+                  const width = `calc((100% - 8px) / ${item.colCount})`;
+                  const left = `calc(${item.col} * (100% - 8px) / ${item.colCount} + 4px)`;
                   return (
                     <button
                       key={item.meeting.id}
                       type="button"
-                      className={`dash-week-cal__event${live ? " is-live" : ""}${done ? " is-done" : ""}${selected ? " is-selected" : ""}`}
+                      className={`dash-week-cal__event${live ? " is-live" : ""}${done ? " is-done" : ""}${selected ? " is-selected" : ""}${compact ? " is-compact" : ""}`}
                       style={{ top: item.top, height: item.height, width, left }}
+                      title={`${time} · ${title} · ${guest}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelect(item.meeting);
                       }}
                     >
-                      <span className="dash-week-cal__event-time">{formatClock(item.meeting.startsAt)}</span>
-                      <span className="dash-week-cal__event-title">
-                        {item.meeting.title || "Product demo"}
-                      </span>
-                      <span className="dash-week-cal__event-guest">
-                        {item.meeting.userName || item.meeting.userEmail || "Guest"}
-                      </span>
+                      {compact ? (
+                        <span className="dash-week-cal__event-title">
+                          {time} · {guest}
+                        </span>
+                      ) : (
+                        <>
+                          <span className="dash-week-cal__event-time">{time}</span>
+                          <span className="dash-week-cal__event-title">{title}</span>
+                          <span className="dash-week-cal__event-guest">{guest}</span>
+                        </>
+                      )}
                     </button>
                   );
                 })}
