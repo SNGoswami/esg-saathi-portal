@@ -1,6 +1,10 @@
-import { redirect } from "next/navigation";
+import WorkspaceRoutePage from "@/modules/dashboard/shell/WorkspaceRoutePage";
+import type { SearchParamsRecord } from "@/modules/dashboard/nav/workspaceRoutes";
 
-/** Legacy /admin, unified admin lives in the dashboard shell. */
-export default function AdminRedirectPage() {
-  redirect("/user/dashboard");
+export default function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParamsRecord>;
+}) {
+  return <WorkspaceRoutePage area="admin" searchParams={searchParams} />;
 }

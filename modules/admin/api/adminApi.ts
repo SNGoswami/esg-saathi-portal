@@ -110,10 +110,6 @@ export const ADMIN_USER_COLUMNS: Record<AdminUserRole, AdminUserColumn[]> = {
   ],
 };
 
-export function adminUserColumnSummary(role: AdminUserRole) {
-  return ADMIN_USER_COLUMNS[role].map((c) => c.label).join(" · ");
-}
-
 export type AdminUserPage = {
   content: AdminUserListItem[];
   number: number;

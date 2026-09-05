@@ -55,9 +55,9 @@ export function resolveDashboardView(
   if (view === "meetings" && role === "admin") return <AdminMeetingsView key="meetings" />;
   if (
     role === "admin" &&
-    (view === "msmes" || view === "cas" || view === "css" || view === "esgs" || view === "auditors")
+    (view === "users" || view === "msmes" || view === "cas" || view === "css" || view === "esgs" || view === "auditors")
   ) {
-    return <AdminUsersView key={view} view={view} />;
+    return <AdminUsersView key="users" view={view} onNavigateView={onNavigateView} />;
   }
   if (view === "dashboard" && role === "msme") {
     return <MsmeDashboardView onNavigateView={onNavigateView} />;

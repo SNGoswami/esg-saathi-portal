@@ -108,33 +108,20 @@ function buildRoleNav(role: RoleKey): NavGroup[] {
 
 const ADMIN_NAV: NavGroup[] = [
   {
-    section: "Overview",
+    section: "Workspace",
     items: [
-      { label: "Dashboard", view: "dashboard", icon: "layout-dashboard" },
-      { label: "Analytics", view: "analytics", icon: "chart-bar" },
-    ],
-  },
-  {
-    section: "Users",
-    items: [
-      { label: "Pending", view: "pending-users", icon: "user-check" },
+      { label: "Inbox", view: "dashboard", icon: "inbox" },
       { label: "Meetings", view: "meetings", icon: "calendar-event" },
-      { label: "MSMEs", view: "msmes", icon: "building-factory-2" },
-      { label: "CAs", view: "cas", icon: "certificate" },
-      { label: "CSs", view: "css", icon: "scale" },
-      { label: "ESG Consultants", view: "esgs", icon: "leaf" },
-      { label: "Auditors", view: "auditors", icon: "shield-check" },
-    ],
-  },
-  {
-    section: "System",
-    items: [
-      { label: "Settings", view: "settings", icon: "settings" },
-      { label: "Logs", view: "logs", icon: "terminal-2" },
+      { label: "Approvals", view: "pending-users", icon: "user-check" },
+      { label: "Users", view: "users", icon: "users" },
+      { label: "Analytics", view: "analytics", icon: "chart-bar" },
     ],
   },
   ACCOUNT_GROUP,
 ];
+
+/** Legacy directory URLs still open the unified Users view. */
+export const ADMIN_DIRECTORY_VIEWS = ["users", "msmes", "cas", "css", "esgs", "auditors"] as const;
 
 export const NAV_BY_ROLE: Record<string, NavGroup[]> = {
   msme: buildRoleNav("msme"),
@@ -168,18 +155,33 @@ export function allViewsForRole(role: string): NavItem[] {
 }
 
 export function findNavItem(role: string, view: string): NavItem | undefined {
-  return allViewsForRole(role).find((i) => i.view === view);
+  const items = allViewsForRole(role);
+  const direct = items.find((i) => i.view === view);
+  if (direct) return direct;
+  if (role === "admin" && ADMIN_DIRECTORY_VIEWS.includes(view as (typeof ADMIN_DIRECTORY_VIEWS)[number])) {
+    return items.find((i) => i.view === "users");
+  }
+  return undefined;
 }
 
 export function isViewAllowedForRole(role: string, view: string): boolean {
-  return allViewsForRole(role).some((i) => i.view === view);
+  if (allViewsForRole(role).some((i) => i.view === view)) return true;
+  return role === "admin" && ADMIN_DIRECTORY_VIEWS.includes(view as (typeof ADMIN_DIRECTORY_VIEWS)[number]);
+}
+
+export function navHighlightView(role: string, view: string): string {
+  if (role === "admin" && ADMIN_DIRECTORY_VIEWS.includes(view as (typeof ADMIN_DIRECTORY_VIEWS)[number])) {
+    return "users";
+  }
+  return view;
 }
 
 const VIEW_DESCRIPTIONS: Record<string, string> = {
   dashboard: "Your ESG workspace snapshot, scores, tasks, and quick access to tools.",
-  analytics: "Total, active, inactive, and new users, plus role distribution.",
-  "pending-users": "New signups waiting for admin approval before they can log in.",
-  meetings: "Week calendar for product demos. Click a block to join, or an empty slot to book.",
+  analytics: "Users by status and role.",
+  "pending-users": "Signups waiting for a demo and access decision.",
+  meetings: "Week calendar for product demos.",
+  users: "Registered accounts by role.",
   msmes: "MSME users, name, sector, and sub-sector.",
   cas: "Chartered Accountants, name and ICAI member number.",
   css: "Company Secretaries, name and ICSI member number.",
@@ -212,7 +214,7 @@ const VIEW_DESCRIPTIONS: Record<string, string> = {
 
 export function viewDescription(view: string, role?: string): string {
   if (view === "dashboard" && role === "admin") {
-    return "Inbox, next demo, and waitlist updates.";
+    return "Unreplied mail, upcoming demo, and waitlist.";
   }
   if (view === "dashboard") {
     return VIEW_DESCRIPTIONS.dashboard;

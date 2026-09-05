@@ -20,11 +20,14 @@ import { useConfirm } from "@/modules/dashboard/components/ConfirmProvider";
 import { useToastOnValue } from "@/modules/dashboard/hooks/useToastOnValue";
 import ScheduleMeetingModal from "@/modules/admin/ui/ScheduleMeetingModal";
 import CompleteMeetingModal from "@/modules/admin/ui/CompleteMeetingModal";
-
-function displayValue(value: string | null | undefined) {
-  const v = value?.trim();
-  return v || "-";
-}
+import {
+  AdminEmpty,
+  AdminMenu,
+  AdminPage,
+  AdminSurface,
+  initialsFromName,
+} from "@/modules/admin/ui/AdminChrome";
+import { relativeWhen } from "@/modules/admin/ui/meetingHelpers";
 
 function roleLabel(role: AdminUserRole | string) {
   return ADMIN_ROLE_LABELS[role as AdminUserRole] ?? role;
@@ -172,155 +175,113 @@ export default function AdminPendingUsersView() {
   }
 
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card">
-        <p className="dash-welcome-card__eyebrow">Users</p>
-        <p className="dash-welcome-card__title">Pending approval</p>
-        <p className="dash-muted" style={{ marginTop: 6 }}>
-          {loading && users.length === 0
-            ? "Loading…"
-            : loading
-              ? "Updating…"
-              : `${totalElements} awaiting review`}{" "}
-          · Schedule a demo, then approve or reject from the meeting conclusion
-        </p>
-      </div>
-
-      <div className="card card--elevated" style={{ padding: "0.75rem 1rem" }}>
-        <input
-          type="search"
-          className="dash-input"
-          placeholder="Search name, email, role…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          disabled={loading}
-        />
-      </div>
-
-      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-        {loading && users.length === 0 ? (
-          <p className="dash-muted" style={{ padding: "1.5rem", textAlign: "center" }}>
-            Loading pending users…
-          </p>
-        ) : filtered.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 200 }}>
-            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              {search ? "No users match your search" : "No pending users"}
-            </p>
+    <AdminPage
+      title="Approvals"
+      meta={
+        loading && users.length === 0
+          ? "Loading…"
+          : `${totalElements} awaiting review`
+      }
+    >
+      <AdminSurface>
+        <div className="admin-surface__head">
+          <div className="admin-search">
+            <i className="ti ti-search" aria-hidden="true" />
+            <input
+              type="search"
+              className="dash-input"
+              placeholder="Search name, email, role"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={loading}
+            />
           </div>
+        </div>
+
+        {loading && users.length === 0 ? (
+          <AdminEmpty title="Loading pending users…" />
+        ) : filtered.length === 0 ? (
+          <AdminEmpty title={search ? "No users match your search" : "No pending users"} />
         ) : (
-          <div className="dash-table-wrap">
-            <table className="dash-data-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Demo</th>
-                  <th>Joined</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((u) => (
-                  <tr key={u.id}>
-                    <td className="dash-data-table__primary" data-label="Name">
-                      {u.name}
-                      <span className="dash-muted" style={{ display: "block", fontSize: "0.625rem", fontWeight: 400 }}>
-                        {u.email}
-                      </span>
-                    </td>
-                    <td data-label="Role">{displayValue(roleLabel(u.role))}</td>
-                    <td data-label="Status">
-                      <span className="dash-chip dash-chip--warning">Pending</span>
-                    </td>
-                    <td data-label="Demo">
-                      {meetingByUser.get(u.id)
-                        ? new Date(meetingByUser.get(u.id)!.startsAt).toLocaleString(undefined, {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })
-                        : "—"}
-                    </td>
-                    <td data-label="Joined">
-                      {u.createdAt
-                        ? new Date(u.createdAt).toLocaleDateString(undefined, {
-                            dateStyle: "medium",
-                          })
-                        : "-"}
-                    </td>
-                    <td data-label="Actions">
-                      <div className="dash-form-actions" style={{ margin: 0 }}>
-                        {meetingByUser.get(u.id) ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm"
-                              disabled={actingId === u.id || loading}
-                              onClick={() => {
-                                setRescheduleMeeting(meetingByUser.get(u.id)!);
-                                setScheduleUser(u);
-                              }}
-                            >
-                              Reschedule
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-ghost btn-sm"
-                              disabled={actingId === u.id || loading}
-                              onClick={() => setCompleteMeeting(meetingByUser.get(u.id)!)}
-                            >
-                              Conclude
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-ghost btn-sm"
-                            disabled={actingId === u.id || loading}
-                            onClick={() => setScheduleUser(u)}
-                          >
-                            Schedule demo
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          className="btn-ghost btn-sm"
-                          disabled={actingId === u.id || loading}
-                          onClick={() => void decide(u, "approve")}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-ghost btn-sm"
-                          disabled={actingId === u.id || loading}
-                          onClick={() => void decide(u, "reject")}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div>
+            {filtered.map((u) => {
+              const meeting = meetingByUser.get(u.id);
+              const busy = actingId === u.id || loading;
+              return (
+                <article key={u.id} className="admin-person">
+                  <span className="admin-avatar" aria-hidden="true">
+                    {initialsFromName(u.name)}
+                  </span>
+                  <div>
+                    <p className="admin-person__name">{u.name}</p>
+                    <p className="admin-person__meta">
+                      {u.email} · {roleLabel(u.role)}
+                    </p>
+                  </div>
+                  <div className="admin-person__side">
+                    <span className={`admin-chip${meeting ? " admin-chip--ready" : ""}`}>
+                      {meeting ? relativeWhen(meeting.startsAt) : "No demo"}
+                    </span>
+                    {meeting ? (
+                      <button
+                        type="button"
+                        className="btn-primary btn-sm"
+                        disabled={busy}
+                        onClick={() => setCompleteMeeting(meeting)}
+                      >
+                        Done
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-primary btn-sm"
+                        disabled={busy}
+                        onClick={() => setScheduleUser(u)}
+                      >
+                        Schedule
+                      </button>
+                    )}
+                    <AdminMenu
+                      disabled={busy}
+                      items={[
+                        ...(meeting
+                          ? [
+                              {
+                                id: "reschedule",
+                                label: "Change time",
+                                onClick: () => {
+                                  setRescheduleMeeting(meeting);
+                                  setScheduleUser(u);
+                                },
+                              },
+                            ]
+                          : []),
+                        {
+                          id: "approve",
+                          label: "Approve",
+                          onClick: () => void decide(u, "approve"),
+                        },
+                        {
+                          id: "reject",
+                          label: "Reject",
+                          danger: true,
+                          onClick: () => void decide(u, "reject"),
+                        },
+                      ]}
+                    />
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
 
-        {!loading && users.length > 0 && (
-          <div
-            className="dash-form-actions"
-            style={{
-              justifyContent: "space-between",
-              padding: "0.625rem 0.75rem",
-              borderTop: "0.5px solid var(--color-border)",
-            }}
-          >
-            <span className="dash-muted">
+        {!loading && users.length > 0 && totalPages > 1 ? (
+          <div className="admin-footer">
+            <span className="admin-quiet">
               Page {page + 1} of {totalPages}
             </span>
-            <div className="dash-form-actions" style={{ margin: 0 }}>
+            <div className="admin-toolbar__actions">
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -339,8 +300,8 @@ export default function AdminPendingUsersView() {
               </button>
             </div>
           </div>
-        )}
-      </div>
+        ) : null}
+      </AdminSurface>
 
       <ScheduleMeetingModal
         open={Boolean(scheduleUser)}
@@ -359,6 +320,6 @@ export default function AdminPendingUsersView() {
         onClose={() => setCompleteMeeting(null)}
         onSubmit={handleComplete}
       />
-    </div>
+    </AdminPage>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminReplyModal from "@/modules/admin/ui/AdminReplyModal";
+import { AdminEmpty, AdminPage, AdminSurface } from "@/modules/admin/ui/AdminChrome";
 import { useToast } from "@/modules/dashboard/components/ToastProvider";
 import { useConfirm } from "@/modules/dashboard/components/ConfirmProvider";
 import {
@@ -9,6 +10,7 @@ import {
   listAdminContacts,
   listAdminMeetings,
   listAdminWaitlist,
+  listPendingAdminUsers,
   sendWaitlistUpdate,
   type AdminContact,
   type AdminWaitlistEntry,
@@ -55,32 +57,57 @@ function InboxRow({
   onReply: () => void;
 }) {
   return (
-    <article className={`dash-admin-inbox__item${expanded ? " is-open" : ""}${contact.replied ? "" : " is-unread"}`}>
-      <button type="button" className="dash-admin-inbox__row" onClick={onToggle}>
+    <article
+      className={`admin-list__row${expanded ? " is-open" : ""}${contact.replied ? "" : " is-unread"}`}
+    >
+      <button type="button" className="admin-list__main" onClick={onToggle}>
         <span className={`dash-status-dot${contact.replied ? "" : " dash-status-dot--ready"}`} aria-hidden />
-        <div className="dash-admin-inbox__main">
-          <div className="dash-admin-inbox__who">
-            <span className="dash-admin-inbox__name">{contact.name}</span>
-            <span className="dash-admin-inbox__subject">{contact.subject}</span>
+        <div>
+          <div className="admin-list__who">
+            <span className="admin-list__name">{contact.name}</span>
+            <span className="admin-list__subject">{contact.subject}</span>
           </div>
-          <p className="dash-admin-inbox__preview">{expanded ? contact.email : contact.message}</p>
-          {expanded ? (
-            <p className="dash-admin-inbox__body">{contact.message}</p>
-          ) : null}
+          <p className="admin-list__preview">{expanded ? contact.email : contact.message}</p>
+          {expanded ? <p className="admin-list__body">{contact.message}</p> : null}
         </div>
-        <span className="dash-admin-inbox__time">{formatContactDate(contact.createdAt)}</span>
+        <span className="admin-list__time">{formatContactDate(contact.createdAt)}</span>
       </button>
-      <div className="dash-admin-inbox__action">
-        <button
-          type="button"
-          className="btn-primary btn-sm"
-          disabled={contact.replied}
-          onClick={onReply}
-        >
+      <div className="admin-list__action">
+        <button type="button" className="btn-primary btn-sm" disabled={contact.replied} onClick={onReply}>
           {contact.replied ? "Replied" : "Reply"}
         </button>
       </div>
     </article>
+  );
+}
+
+function GlanceStat({
+  label,
+  value,
+  hint,
+  onClick,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <>
+      <p className="admin-kpi__label">{label}</p>
+      <p className="admin-kpi__value">{value}</p>
+      {hint ? <p className="admin-kpi__hint">{hint}</p> : null}
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="admin-kpi">{inner}</div>;
+  }
+
+  return (
+    <button type="button" className="admin-kpi admin-kpi--btn" onClick={onClick}>
+      {inner}
+    </button>
   );
 }
 
@@ -107,6 +134,10 @@ export default function AdminDashboardView({
   const [notifyMessage, setNotifyMessage] = useState("");
   const [sendingNotify, setSendingNotify] = useState(false);
   const [nextDemo, setNextDemo] = useState<DemoMeeting | null>(null);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [inboxFilter, setInboxFilter] = useState<"open" | "all">("open");
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
+  const waitlistRef = useRef<HTMLDivElement>(null);
 
   const toast = useToast();
   const confirm = useConfirm();
@@ -158,9 +189,19 @@ export default function AdminDashboardView({
       }
 
       try {
-        const [cData, wData] = await Promise.all([listAdminContacts(0), listAdminWaitlist()]);
+        const [cData, wData, pending, scheduled] = await Promise.all([
+          listAdminContacts(0),
+          listAdminWaitlist(),
+          listPendingAdminUsers(0, 1).catch(() => null),
+          listAdminMeetings("SCHEDULED", 0, 20).catch(() => null),
+        ]);
         persistContactsState(cData.content, 0, !cData.last, cData.totalElements);
         applyWaitlist(wData);
+        setPendingApprovals(pending?.totalElements ?? 0);
+        const upcoming = [...(scheduled?.content ?? [])].sort(
+          (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+        );
+        setNextDemo(upcoming[0] ?? null);
       } catch (err) {
         if (!options?.silent) {
           toast.error(err instanceof Error ? err.message : "Failed to load dashboard");
@@ -181,25 +222,9 @@ export default function AdminDashboardView({
     void load();
   }, [hasInitialCache, load]);
 
-  const loadNextDemo = useCallback(async () => {
-    try {
-      const scheduled = await listAdminMeetings("SCHEDULED", 0, 1);
-      const list = [...(scheduled.content ?? [])].sort(
-        (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-      );
-      setNextDemo(list[0] ?? null);
-    } catch {
-      setNextDemo(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadNextDemo();
-  }, [loadNextDemo]);
-
   async function refresh() {
-    await Promise.all([load({ skipCache: true, silent: true }), loadNextDemo()]);
-    toast.success("Dashboard refreshed");
+    await load({ skipCache: true, silent: true });
+    toast.success("Inbox refreshed");
   }
 
   async function loadMore() {
@@ -258,14 +283,16 @@ export default function AdminDashboardView({
 
   const filteredContacts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter(
-      (c) =>
+    return contacts.filter((c) => {
+      if (inboxFilter === "open" && c.replied) return false;
+      if (!q) return true;
+      return (
         c.name.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
-        c.subject.toLowerCase().includes(q),
-    );
-  }, [contacts, searchTerm]);
+        c.subject.toLowerCase().includes(q)
+      );
+    });
+  }, [contacts, searchTerm, inboxFilter]);
 
   async function sendWaitlistNotification() {
     const subject = notifySubject.trim();
@@ -293,6 +320,7 @@ export default function AdminDashboardView({
       const result = await sendWaitlistUpdate({ subject, message });
       setNotifySubject("");
       setNotifyMessage("");
+      setWaitlistOpen(false);
       toast.success(
         `Update sent to ${result.count ?? waitlist.length} subscriber${(result.count ?? waitlist.length) !== 1 ? "s" : ""}`,
       );
@@ -312,172 +340,248 @@ export default function AdminDashboardView({
     });
   }
 
+  function focusWaitlist() {
+    setWaitlistOpen(true);
+    requestAnimationFrame(() => {
+      waitlistRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }
+
+  const statusLabel =
+    loading && contacts.length === 0
+      ? "Loading…"
+      : refreshing
+        ? "Refreshing…"
+        : pendingCount === 0
+          ? "Inbox is clear"
+          : `${pendingCount} unreplied`;
+
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card dash-admin-home-head">
-        <div>
-          <p className="dash-welcome-card__eyebrow">Admin</p>
-          <p className="dash-welcome-card__title">Inbox</p>
-          <p className="dash-admin-kpis">
-            <span>
-              {loading && contacts.length === 0
-                ? "Loading…"
-                : refreshing
-                  ? "Refreshing…"
-                  : `${pendingCount} unreplied`}
-            </span>
-            <span aria-hidden="true">·</span>
-            <span>{waitlist.length} waitlist</span>
-            {nextDemo ? (
-              <>
-                <span aria-hidden="true">·</span>
-                <span>Next demo {relativeWhen(nextDemo.startsAt)}</span>
-              </>
-            ) : null}
-          </p>
-        </div>
+    <AdminPage
+      title="Inbox"
+      meta={statusLabel}
+      actions={
         <button
           type="button"
           className="btn-ghost btn-sm"
           disabled={refreshing || loading}
           onClick={() => void refresh()}
         >
-          <i className="ti ti-refresh" style={{ marginRight: 6, fontSize: 14 }} aria-hidden="true" />
           {refreshing ? "Refreshing…" : "Refresh"}
         </button>
+      }
+    >
+      <div className="admin-kpis">
+        <GlanceStat
+          label="Unreplied"
+          value={loading && contacts.length === 0 ? "…" : String(pendingCount)}
+          hint={totalContacts ? `${totalContacts} total` : undefined}
+          onClick={() => setInboxFilter("open")}
+        />
+        <GlanceStat
+          label="Approvals"
+          value={String(pendingApprovals)}
+          hint="Awaiting review"
+          onClick={() => onNavigateView?.("pending-users")}
+        />
+        <GlanceStat
+          label="Waitlist"
+          value={String(waitlist.length)}
+          hint="Subscribers"
+          onClick={focusWaitlist}
+        />
+        <GlanceStat
+          label="Next demo"
+          value={nextDemo ? formatClock(nextDemo.startsAt) : "—"}
+          hint={nextDemo ? relativeWhen(nextDemo.startsAt) : "None scheduled"}
+          onClick={() => onNavigateView?.("meetings")}
+        />
       </div>
 
-      {nextDemo ? (
-        <div className="card card--elevated dash-admin-next">
-          <div>
-            <p className="dash-admin-next__time">{formatClock(nextDemo.startsAt)}</p>
-            <p className="dash-admin-next__title">{nextDemo.title || "Product demo"}</p>
-            <p className="dash-muted" style={{ marginTop: 4 }}>
-              {nextDemo.userName || nextDemo.userEmail} · {relativeWhen(nextDemo.startsAt)}
-            </p>
-          </div>
-          <div className="dash-admin-next__actions">
-            {nextDemo.meetLink ? (
+      <div className="admin-home">
+        <AdminSurface>
+          <div className="admin-surface__head">
+            <div className="admin-filters" role="tablist" aria-label="Message status">
               <button
                 type="button"
-                className="btn-primary btn-sm"
-                onClick={() => window.open(nextDemo.meetLink ?? "", "_blank", "noopener,noreferrer")}
+                role="tab"
+                aria-selected={inboxFilter === "open"}
+                className={`admin-filter${inboxFilter === "open" ? " is-active" : ""}`}
+                onClick={() => setInboxFilter("open")}
               >
-                Join
+                Unreplied
               </button>
-            ) : null}
-            <button type="button" className="btn-ghost btn-sm" onClick={() => onNavigateView?.("meetings")}>
-              Meetings
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="dash-panel-head">
-          <div>
-            <p className="dash-panel-head__title">Messages</p>
-            <p className="dash-muted" style={{ marginTop: 2 }}>
-              {loading ? "Loading…" : `${filteredContacts.length} of ${totalContacts}`}
-            </p>
-          </div>
-        </div>
-        <div className="dash-admin-inbox__search">
-          <input
-            type="search"
-            className="dash-input"
-            placeholder="Search name, email, or subject"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={loading && contacts.length === 0}
-          />
-        </div>
-        {loading && contacts.length === 0 ? (
-          <p className="dash-muted" style={{ padding: "1.5rem", textAlign: "center" }}>
-            Loading messages…
-          </p>
-        ) : filteredContacts.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 160, padding: "1.75rem 1rem" }}>
-            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              {searchTerm ? "No matching messages" : "No messages yet"}
-            </p>
-          </div>
-        ) : (
-          <div className="dash-admin-inbox">
-            {filteredContacts.map((c) => (
-              <InboxRow
-                key={c.id}
-                contact={c}
-                expanded={expandedIds.has(c.id)}
-                onToggle={() => toggleExpanded(c.id)}
-                onReply={() => setReplyTarget(c)}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={inboxFilter === "all"}
+                className={`admin-filter${inboxFilter === "all" ? " is-active" : ""}`}
+                onClick={() => setInboxFilter("all")}
+              >
+                All
+              </button>
+            </div>
+            <div className="admin-search">
+              <i className="ti ti-search" aria-hidden="true" />
+              <input
+                type="search"
+                className="dash-input"
+                placeholder="Search name, email, or subject"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={loading && contacts.length === 0}
               />
-            ))}
+            </div>
           </div>
-        )}
-        {(hasMore || contacts.length > ADMIN_CONTACT_PAGE_SIZE) && (
-          <div className="dash-form-actions" style={{ justifyContent: "flex-end", padding: "0.625rem 1rem 0.875rem" }}>
-            {contacts.length > ADMIN_CONTACT_PAGE_SIZE && (
-              <button type="button" className="btn-ghost btn-sm" onClick={loadLess}>
-                Show less
-              </button>
-            )}
-            {hasMore && (
-              <button
-                type="button"
-                className="btn-ghost btn-sm"
-                disabled={loadingMore}
-                onClick={() => void loadMore()}
-              >
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+          {loading && contacts.length === 0 ? (
+            <AdminEmpty title="Loading messages…" />
+          ) : filteredContacts.length === 0 ? (
+            <AdminEmpty
+              title={searchTerm ? "No matching messages" : inboxFilter === "open" ? "Inbox is clear" : "No messages yet"}
+              hint={inboxFilter === "open" && contacts.length > 0 ? "Open All to see replied mail." : undefined}
+            />
+          ) : (
+            <div className="admin-list">
+              {filteredContacts.map((c) => (
+                <InboxRow
+                  key={c.id}
+                  contact={c}
+                  expanded={expandedIds.has(c.id)}
+                  onToggle={() => toggleExpanded(c.id)}
+                  onReply={() => setReplyTarget(c)}
+                />
+              ))}
+            </div>
+          )}
+          {(hasMore || contacts.length > ADMIN_CONTACT_PAGE_SIZE) && (
+            <div className="admin-footer">
+              <span className="admin-quiet">
+                {filteredContacts.length} shown · {totalContacts} total
+              </span>
+              <div className="admin-toolbar__actions">
+                {contacts.length > ADMIN_CONTACT_PAGE_SIZE && (
+                  <button type="button" className="btn-ghost btn-sm" onClick={loadLess}>
+                    Show less
+                  </button>
+                )}
+                {hasMore && (
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore()}
+                  >
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </AdminSurface>
 
-      <div className="card card--elevated dash-form-stack">
-        <div>
-          <p className="dash-section-title">Waitlist update</p>
-          <p className="dash-muted" style={{ marginTop: 4 }}>
-            One email to {waitlist.length} subscriber{waitlist.length !== 1 ? "s" : ""}.
-          </p>
-        </div>
-        <div>
-          <label className="dash-label">Subject</label>
-          <input
-            type="text"
-            className="dash-input"
-            value={notifySubject}
-            onChange={(e) => setNotifySubject(e.target.value)}
-            placeholder="Launch update"
-          />
-        </div>
-        <div>
-          <label className="dash-label">Message</label>
-          <textarea
-            className="dash-input dash-advisor__textarea"
-            value={notifyMessage}
-            onChange={(e) => setNotifyMessage(e.target.value)}
-            placeholder="Write the update…"
-            rows={5}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                e.preventDefault();
-                void sendWaitlistNotification();
-              }
-            }}
-          />
-        </div>
-        <button
-          type="button"
-          className="btn-primary btn-sm"
-          style={{ alignSelf: "flex-start" }}
-          disabled={sendingNotify || !notifySubject.trim() || !notifyMessage.trim() || waitlist.length === 0}
-          onClick={() => void sendWaitlistNotification()}
-        >
-          {sendingNotify ? "Sending…" : "Send"}
-        </button>
+        <aside className="admin-home__rail">
+          <AdminSurface>
+            {nextDemo ? (
+              <div className="admin-banner">
+                <div>
+                  <p className="admin-banner__time">{formatClock(nextDemo.startsAt)}</p>
+                  <p className="admin-banner__title">{nextDemo.title || "Product demo"}</p>
+                  <p className="admin-banner__meta">
+                    {nextDemo.userName || nextDemo.userEmail} · {relativeWhen(nextDemo.startsAt)}
+                  </p>
+                </div>
+                <div className="admin-banner__actions">
+                  {nextDemo.meetLink ? (
+                    <button
+                      type="button"
+                      className="btn-primary btn-sm"
+                      onClick={() => window.open(nextDemo.meetLink ?? "", "_blank", "noopener,noreferrer")}
+                    >
+                      Join
+                    </button>
+                  ) : null}
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => onNavigateView?.("meetings")}>
+                    Open
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="admin-banner">
+                <div>
+                  <p className="admin-banner__time">Calendar</p>
+                  <p className="admin-banner__title">No demo lined up</p>
+                  <p className="admin-banner__meta">Schedule from Approvals when a signup is ready.</p>
+                </div>
+                <div className="admin-banner__actions">
+                  <button type="button" className="btn-ghost btn-sm" onClick={() => onNavigateView?.("pending-users")}>
+                    Approvals
+                  </button>
+                </div>
+              </div>
+            )}
+          </AdminSurface>
+
+          <div ref={waitlistRef}>
+            <AdminSurface padded>
+              <div className="admin-form">
+                <div className="admin-rail-head">
+                  <div>
+                    <p className="admin-rail-head__title">Waitlist</p>
+                    <p className="admin-quiet">
+                      {waitlist.length} subscriber{waitlist.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-sm"
+                    onClick={() => setWaitlistOpen((open) => !open)}
+                  >
+                    {waitlistOpen ? "Close" : "Write update"}
+                  </button>
+                </div>
+                {waitlistOpen ? (
+                  <>
+                    <div>
+                      <label className="dash-label">Subject</label>
+                      <input
+                        type="text"
+                        className="dash-input"
+                        value={notifySubject}
+                        onChange={(e) => setNotifySubject(e.target.value)}
+                        placeholder="Launch update"
+                      />
+                    </div>
+                    <div>
+                      <label className="dash-label">Message</label>
+                      <textarea
+                        className="dash-input dash-advisor__textarea"
+                        value={notifyMessage}
+                        onChange={(e) => setNotifyMessage(e.target.value)}
+                        placeholder="Write the update…"
+                        rows={6}
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                            e.preventDefault();
+                            void sendWaitlistNotification();
+                          }
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-primary btn-sm"
+                      style={{ alignSelf: "flex-start" }}
+                      disabled={sendingNotify || !notifySubject.trim() || !notifyMessage.trim() || waitlist.length === 0}
+                      onClick={() => void sendWaitlistNotification()}
+                    >
+                      {sendingNotify ? "Sending…" : "Send update"}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </AdminSurface>
+          </div>
+        </aside>
       </div>
 
       <AdminReplyModal
@@ -485,6 +589,6 @@ export default function AdminDashboardView({
         onClose={() => setReplyTarget(null)}
         onSent={handleReplied}
       />
-    </div>
+    </AdminPage>
   );
 }

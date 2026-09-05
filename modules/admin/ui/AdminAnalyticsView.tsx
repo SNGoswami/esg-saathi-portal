@@ -5,33 +5,29 @@ import { useCallback, useEffect, useState } from "react";
 import { getAdminAnalytics, type AdminUserAnalytics } from "@/modules/admin/api/adminApi";
 import { readAdminAnalyticsCache, writeAdminAnalyticsCache } from "@/modules/admin/api/adminAnalyticsCache";
 import { useToastOnValue } from "@/modules/dashboard/hooks/useToastOnValue";
+import { AdminEmpty, AdminPage, AdminSurface } from "@/modules/admin/ui/AdminChrome";
 
 const AdminRoleChart = dynamic(() => import("@/modules/admin/ui/AdminRoleChart"), {
   ssr: false,
   loading: () => (
-    <div className="card card--elevated" style={{ padding: "2rem", textAlign: "center" }}>
-      <p className="dash-muted">Loading chart…</p>
-    </div>
+    <AdminSurface padded>
+      <p className="admin-quiet">Loading chart…</p>
+    </AdminSurface>
   ),
 });
 
 function AnalyticsSkeleton() {
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card">
-        <p className="dash-welcome-card__eyebrow">Platform analytics</p>
-        <p className="dash-welcome-card__title">User counts and role distribution</p>
-        <p className="dash-muted" style={{ marginTop: 6 }}>Loading platform stats…</p>
-      </div>
-      <div className="dash-grid-stats">
+    <AdminPage title="Analytics" meta="Loading platform stats…">
+      <div className="admin-kpis">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="card card--elevated dash-score-card">
-            <div style={{ height: 12, width: "60%", borderRadius: 4, background: "var(--color-border)" }} />
-            <div style={{ height: 28, width: "40%", borderRadius: 4, background: "var(--color-border)", marginTop: 12 }} />
+          <div key={i} className="admin-kpi">
+            <p className="admin-kpi__label">—</p>
+            <p className="admin-kpi__value">…</p>
           </div>
         ))}
       </div>
-    </div>
+    </AdminPage>
   );
 }
 
@@ -44,11 +40,7 @@ export default function AdminAnalyticsView() {
   const [error, setError] = useState("");
 
   const feedbackMessage =
-    !loading && error
-      ? error
-      : !loading && !data
-        ? error || "Analytics unavailable"
-        : null;
+    !loading && error ? error : !loading && !data ? error || "Analytics unavailable" : null;
   useToastOnValue(feedbackMessage, "error");
 
   const applyData = useCallback((analytics: AdminUserAnalytics) => {
@@ -109,64 +101,55 @@ export default function AdminAnalyticsView() {
 
   if ((error && !data) || !data) {
     return (
-      <div className="dash-content">
-        <button type="button" className="btn-primary btn-sm" onClick={() => void load({ skipCache: true })}>
-          Retry
-        </button>
-      </div>
+      <AdminPage title="Analytics">
+        <AdminSurface>
+          <AdminEmpty
+            title="Analytics unavailable"
+            action={
+              <button type="button" className="btn-primary btn-sm" onClick={() => void load({ skipCache: true })}>
+                Retry
+              </button>
+            }
+          />
+        </AdminSurface>
+      </AdminPage>
     );
   }
 
   const statCards = [
-    { label: "Total users", value: data.totalUsers, icon: "users", color: "#006C49" },
-    { label: "Active users", value: data.activeUsers, icon: "user-check", color: "#0B8A5A" },
-    { label: "Inactive users", value: data.inactiveUsers, icon: "user-off", color: "#F59E0B" },
-    {
-      label: "New users (10 days)",
-      value: data.newUsersLast10Days,
-      icon: "user-plus",
-      color: "#2563EB",
-    },
+    { label: "Total", value: data.totalUsers },
+    { label: "Active", value: data.activeUsers },
+    { label: "Inactive", value: data.inactiveUsers },
+    { label: "New · 10 days", value: data.newUsersLast10Days },
   ];
 
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <p className="dash-welcome-card__eyebrow">Platform analytics</p>
-          <p className="dash-welcome-card__title">User counts and role distribution</p>
-          <p className="dash-muted" style={{ marginTop: 6 }}>
-            {refreshing ? "Refreshing…" : "Excludes administrator accounts. New users joined in the last 10 days."}
-          </p>
-        </div>
+    <AdminPage
+      title="Analytics"
+      meta={refreshing ? "Refreshing…" : "Excludes administrator accounts"}
+      actions={
         <button
           type="button"
           className="btn-ghost btn-sm"
           disabled={refreshing}
           onClick={() => void load({ skipCache: true, silent: true })}
         >
-          <i className="ti ti-refresh" style={{ marginRight: 6, fontSize: 14 }} aria-hidden="true" />
           Refresh
         </button>
-      </div>
-
-      <div className="dash-grid-stats">
+      }
+    >
+      <div className="admin-kpis">
         {statCards.map((c) => (
-          <div key={c.label} className="card card--elevated dash-score-card">
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
-              <span className="dash-score-card__label">{c.label}</span>
-              <div className="dash-stat-icon" style={{ background: `${c.color}18` }}>
-                <i className={`ti ti-${c.icon}`} style={{ fontSize: 16, color: c.color }} aria-hidden="true" />
-              </div>
-            </div>
-            <p className="dash-stat-value" style={{ color: c.color }}>
-              {c.value.toLocaleString()}
-            </p>
+          <div key={c.label} className="admin-kpi">
+            <p className="admin-kpi__label">{c.label}</p>
+            <p className="admin-kpi__value">{c.value.toLocaleString()}</p>
           </div>
         ))}
       </div>
 
-      <AdminRoleChart data={data} />
-    </div>
+      <AdminSurface>
+        <AdminRoleChart data={data} />
+      </AdminSurface>
+    </AdminPage>
   );
 }

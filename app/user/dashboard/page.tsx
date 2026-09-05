@@ -1,15 +1,10 @@
-import { Suspense } from "react";
-import DashboardLoadingScreen from "@/modules/dashboard/components/DashboardLoadingScreen";
-import DashboardPageClient from "./DashboardPageClient";
+import WorkspaceRoutePage from "@/modules/dashboard/shell/WorkspaceRoutePage";
+import type { SearchParamsRecord } from "@/modules/dashboard/nav/workspaceRoutes";
 
-function DashboardFallback() {
-  return <DashboardLoadingScreen />;
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense fallback={<DashboardFallback />}>
-      <DashboardPageClient />
-    </Suspense>
-  );
+export default function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParamsRecord>;
+}) {
+  return <WorkspaceRoutePage area="user" searchParams={searchParams} />;
 }

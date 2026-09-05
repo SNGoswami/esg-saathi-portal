@@ -2,7 +2,12 @@
  * Role normalization and post-login redirect for the portal.
  */
 
-import { getSafeRedirectPath } from "@/modules/platform/auth/redirect";
+import {
+  ADMIN_HOME,
+  USER_HOME,
+  getSafeRedirectPath,
+  remapUserPathToAdmin,
+} from "@/modules/platform/auth/redirect";
 
 export type RoleKey =
   | "msme"
@@ -38,9 +43,27 @@ export function normalizeRole(role: string | null | undefined): RoleKey {
   return "msme";
 }
 
+export function workspaceHome(role: string | null | undefined): string {
+  return normalizeRole(role) === "admin" ? ADMIN_HOME : USER_HOME;
+}
+
 export function getPostLoginPath(
-  _role: string | null | undefined,
+  role: string | null | undefined,
   redirect?: string | null,
 ): string {
-  return getSafeRedirectPath(redirect);
+  const key = normalizeRole(role);
+  const fallback = workspaceHome(key);
+  const safe = getSafeRedirectPath(redirect, fallback);
+  const pathname = safe.split("?")[0] ?? safe;
+
+  if (key === "admin") {
+    if (pathname === ADMIN_HOME || pathname.startsWith(`${ADMIN_HOME}/`)) return safe;
+    if (pathname.startsWith("/user/")) return remapUserPathToAdmin(safe);
+    return ADMIN_HOME;
+  }
+
+  if (pathname === ADMIN_HOME || pathname.startsWith(`${ADMIN_HOME}/`)) {
+    return USER_HOME;
+  }
+  return safe;
 }

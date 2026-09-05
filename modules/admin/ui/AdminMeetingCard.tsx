@@ -49,8 +49,10 @@ export default function AdminMeetingCard({
           {meeting.userName || meeting.userEmail || "Guest"}
           {" · "}
           {relativeWhen(meeting.startsAt)}
-          {!compact && meeting.userEmail ? ` · ${meeting.userEmail}` : ""}
         </p>
+        {!compact && meeting.userEmail ? (
+          <p className="dash-muted dash-meeting-card__meta">{meeting.userEmail}</p>
+        ) : null}
       </div>
       {scheduled ? (
         <div className="dash-meeting-card__actions">

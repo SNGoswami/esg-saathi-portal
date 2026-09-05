@@ -17,9 +17,9 @@ import {
 const ROLE_CHART_COLORS: Record<string, string> = {
   MSME: "#006C49",
   CA: "#0B8A5A",
-  CS: "#2563EB",
-  ESG_CONSULTANT: "#6366F1",
-  ASSURER_AUDITOR: "#F59E0B",
+  CS: "#3D7A66",
+  ESG_CONSULTANT: "#147A5A",
+  ASSURER_AUDITOR: "#5B6B66",
 };
 
 const ROLE_SHORT_LABELS: Record<string, string> = {
@@ -53,12 +53,16 @@ export default function AdminRoleChart({ data }: { data: AdminUserAnalytics }) {
   }, [data]);
 
   return (
-    <div className="card card--elevated lighthouse-chart-card lighthouse-chart-card--wide">
-      <div className="lighthouse-chart-card__head">
-        <p className="lighthouse-chart-card__title">Users by role</p>
-        <p className="lighthouse-chart-card__sub">Registered platform users per role</p>
+    <div className="admin-chart">
+      <div className="admin-surface__head" style={{ borderBottom: 0, paddingInline: "0.4rem" }}>
+        <div>
+          <p className="dash-panel-head__title">Users by role</p>
+          <p className="admin-quiet" style={{ marginTop: 2 }}>
+            Registered platform users
+          </p>
+        </div>
       </div>
-      <div className="lighthouse-chart-card__body">
+      <div>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={roleChartData} margin={{ top: 8, right: 12, left: -12, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />

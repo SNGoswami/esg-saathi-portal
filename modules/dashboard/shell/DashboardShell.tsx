@@ -17,12 +17,15 @@ import {
   viewDescription,
   isViewAllowedForRole,
   allViewsForRole,
+  findNavItem,
+  navHighlightView,
   type NavItem,
   type NavGroup,
 } from "@/modules/dashboard/nav/dashboardNav";
 import {
   buildAssessmentDashboardUrl,
   buildReportsDashboardUrl,
+  buildWorkspaceHref,
   type AssessmentRouteParams,
   type ReportsRouteParams,
 } from "@/modules/dashboard/nav/workspaceRoutes";
@@ -59,12 +62,14 @@ function Topbar({
   activeView,
   onNavLinkClick,
   onMobileMenuToggle,
+  hideFiscalYear,
 }: {
   title: string;
   role: string;
   activeView: string;
   onNavLinkClick: (view: string) => void;
   onMobileMenuToggle: () => void;
+  hideFiscalYear?: boolean;
 }) {
   const { user, logout } = useAuth();
   const { theme } = useTheme();
@@ -73,9 +78,12 @@ function Topbar({
   const userMenuRef = useRef<HTMLDivElement>(null);
   const isDark = theme === "dark";
 
-  const topbarItems = (NAV_BY_ROLE[role] ?? [])
-    .filter((g) => g.section === "Main" || g.section === "Overview")
-    .flatMap((g) => g.items);
+  const topbarItems =
+    role === "admin"
+      ? []
+      : (NAV_BY_ROLE[role] ?? [])
+          .filter((g) => g.section === "Main" || g.section === "Overview")
+          .flatMap((g) => g.items);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -129,24 +137,26 @@ function Topbar({
         </span>
       )}
 
-      <nav className="dash-topbar__nav" aria-label="Quick navigation">
-        {topbarItems.map((item: NavItem) => (
-          <button
-            key={item.view}
-            type="button"
-            className={`dash-nav-pill${activeView === item.view ? " dash-nav-pill--active" : ""}`}
-            onClick={() => onNavLinkClick(item.view)}
-          >
-            <i className={`ti ti-${item.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      {topbarItems.length > 0 ? (
+        <nav className="dash-topbar__nav" aria-label="Quick navigation">
+          {topbarItems.map((item: NavItem) => (
+            <button
+              key={item.view}
+              type="button"
+              className={`dash-nav-pill${activeView === item.view ? " dash-nav-pill--active" : ""}`}
+              onClick={() => onNavLinkClick(item.view)}
+            >
+              <i className={`ti ti-${item.icon}`} style={{ fontSize: 13 }} aria-hidden="true" />
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
       {!isMobile && <div className="dash-topbar__spacer" />}
 
       <div className="dash-topbar__controls">
-        {!isMobile && (
+        {!isMobile && !hideFiscalYear && (
           <div className="dash-chip" title="Current fiscal year">
             <i className="ti ti-calendar dash-chip__icon" aria-hidden="true" />
             <span className="dash-chip__label">{fiscalYearLabel}</span>
@@ -400,10 +410,10 @@ export default function DashboardShell({ initialView = "dashboard" }: { initialV
     if (resolvedView !== activeView) {
       queueMicrotask(() => {
         setActiveView("dashboard");
-        router.replace("/user/dashboard", { scroll: false });
+        router.replace(buildWorkspaceHref(role), { scroll: false });
       });
     }
-  }, [resolvedView, activeView, router]);
+  }, [resolvedView, activeView, router, role]);
 
   useEffect(() => {
     if (role === "admin") {
@@ -417,10 +427,9 @@ export default function DashboardShell({ initialView = "dashboard" }: { initialV
 
   const syncUrl = useCallback(
     (view: string) => {
-      const path = view === "dashboard" ? "/user/dashboard" : `/user/dashboard?view=${encodeURIComponent(view)}`;
-      router.replace(path, { scroll: false });
+      router.replace(buildWorkspaceHref(role, view), { scroll: false });
     },
-    [router],
+    [router, role],
   );
 
   const handleSelect = useCallback(
@@ -453,20 +462,22 @@ export default function DashboardShell({ initialView = "dashboard" }: { initialV
   );
 
   const allItems = (NAV_BY_ROLE[role] ?? []).flatMap((g) => g.items);
-  const activeItem = allItems.find((i: NavItem) => i.view === resolvedView);
+  const activeItem = allItems.find((i: NavItem) => i.view === resolvedView) ?? findNavItem(role, resolvedView);
   const pageTitle = activeItem?.label ?? "Dashboard";
   const topbarTitle =
     isMobile && activeItem?.sidebarLabel ? activeItem.sidebarLabel : pageTitle;
-  const showPageHeader = resolvedView !== "dashboard" || role === "admin";
+  const showPageHeader = role !== "admin" && resolvedView !== "dashboard";
+  const highlightView = navHighlightView(role, resolvedView);
 
   return (
-    <div className={`dash-shell${isMobile ? " dash-shell--mobile" : ""}`}>
+    <div className={`dash-shell${isMobile ? " dash-shell--mobile" : ""}${role === "admin" ? " dash-shell--admin" : ""}`}>
       <Topbar
         title={topbarTitle}
         role={role}
-        activeView={resolvedView}
+        activeView={highlightView}
         onNavLinkClick={handleSelect}
         onMobileMenuToggle={() => setMobileOpen(true)}
+        hideFiscalYear={role === "admin"}
       />
 
       <div className="dash-body">
@@ -474,7 +485,7 @@ export default function DashboardShell({ initialView = "dashboard" }: { initialV
           <div style={{ position: "relative", height: "100%", flexShrink: 0 }}>
             <Sidebar
               role={role}
-              activeView={resolvedView}
+              activeView={highlightView}
               onSelect={handleSelect}
               expanded={sidebarExpanded}
               isMobile={false}
@@ -488,7 +499,7 @@ export default function DashboardShell({ initialView = "dashboard" }: { initialV
         ) : (
           <Sidebar
             role={role}
-            activeView={resolvedView}
+            activeView={highlightView}
             onSelect={handleSelect}
             expanded={drawerOpen}
             isMobile

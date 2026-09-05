@@ -14,7 +14,6 @@ import {
   scheduleAdminMeeting,
   type AdminUserListItem,
   type DemoMeeting,
-  type DemoMeetingStatus,
   type GoogleCalendarStatus,
   type MeetingDecision,
 } from "@/modules/admin/api/adminApi";
@@ -25,26 +24,16 @@ import ScheduleMeetingModal from "@/modules/admin/ui/ScheduleMeetingModal";
 import CompleteMeetingModal from "@/modules/admin/ui/CompleteMeetingModal";
 import AdminMeetingCard from "@/modules/admin/ui/AdminMeetingCard";
 import AdminMeetingWeekCalendar from "@/modules/admin/ui/AdminMeetingWeekCalendar";
+import { AdminPage, AdminSurface } from "@/modules/admin/ui/AdminChrome";
 import { startOfWeek } from "@/modules/admin/ui/meetingHelpers";
-
-const FILTERS: { id: DemoMeetingStatus; label: string }[] = [
-  { id: "SCHEDULED", label: "Upcoming" },
-  { id: "COMPLETED", label: "Done" },
-];
 
 export default function AdminMeetingsView() {
   const toast = useToast();
   const confirm = useConfirm();
   const searchParams = useSearchParams();
-  const [viewMode, setViewMode] = useState<"calendar" | "agenda">("calendar");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [board, setBoard] = useState<DemoMeeting[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<DemoMeetingStatus>("SCHEDULED");
-  const [meetings, setMeetings] = useState<DemoMeeting[]>([]);
-  const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [calendar, setCalendar] = useState<GoogleCalendarStatus | null>(null);
   const [pendingUsers, setPendingUsers] = useState<AdminUserListItem[]>([]);
@@ -58,7 +47,7 @@ export default function AdminMeetingsView() {
 
   useToastOnValue(error, "error");
 
-  const selected = board.find((m) => m.id === selectedId) ?? meetings.find((m) => m.id === selectedId) ?? null;
+  const selected = board.find((m) => m.id === selectedId) ?? null;
 
   const loadCalendar = useCallback(async () => {
     try {
@@ -80,31 +69,6 @@ export default function AdminMeetingsView() {
     }
   }, []);
 
-  const load = useCallback(
-    async (targetPage: number, options?: { silent?: boolean }) => {
-      if (!options?.silent) setLoading(true);
-      setError("");
-      try {
-        const result = await listAdminMeetings(filter, targetPage);
-        const list = result.content ?? [];
-        setMeetings(
-          filter === "SCHEDULED"
-            ? [...list].sort(
-                (a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
-              )
-            : list,
-        );
-        setPage(result.number ?? targetPage);
-        setTotalPages(Math.max(result.totalPages ?? 1, 1));
-      } catch (ex: unknown) {
-        setError(ex instanceof Error ? ex.message : "Failed to load meetings");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [filter],
-  );
-
   const loadPending = useCallback(async () => {
     try {
       const [pending, scheduled] = await Promise.all([
@@ -118,22 +82,15 @@ export default function AdminMeetingsView() {
     }
   }, []);
 
-  const refreshAll = useCallback(
-    async (targetPage = page) => {
-      await Promise.all([load(targetPage, { silent: true }), loadPending(), loadBoard()]);
-    },
-    [load, loadPending, loadBoard, page],
-  );
+  const refreshAll = useCallback(async () => {
+    await Promise.all([loadPending(), loadBoard()]);
+  }, [loadPending, loadBoard]);
 
   useEffect(() => {
     void loadCalendar();
     void loadPending();
     void loadBoard();
   }, [loadCalendar, loadPending, loadBoard]);
-
-  useEffect(() => {
-    void load(0);
-  }, [load]);
 
   useEffect(() => {
     const flag = searchParams.get("google");
@@ -241,6 +198,7 @@ export default function AdminMeetingsView() {
         "success",
       );
       setCompleteMeeting(null);
+      if (selectedId === completeMeeting.id) setSelectedId(null);
       await refreshAll();
     } catch (ex: unknown) {
       setError(ex instanceof Error ? ex.message : "Failed to record conclusion");
@@ -260,179 +218,73 @@ export default function AdminMeetingsView() {
     setScheduleOpen(true);
   }
 
+  const calendarMeta = calendar?.connected
+    ? calendar.googleEmail
+    : calendar?.configured
+      ? "Connect Calendar for Meet links"
+      : "Invites are emailed without Meet until Calendar is connected";
+
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card">
-        <div className="dash-meeting-toolbar">
-          <div>
-            <p className="dash-welcome-card__eyebrow">Demos</p>
-            <p className="dash-welcome-card__title">Meetings</p>
-            <p className="dash-muted" style={{ marginTop: 6 }}>
-              Track the week, click a block to join, or click an empty slot to book.
-            </p>
-          </div>
+    <AdminPage
+      title="Meetings"
+      meta={calendarMeta}
+      actions={
+        <>
+          {calendar?.connected ? (
+            <button type="button" className="admin-link-btn" onClick={() => void handleDisconnect()}>
+              Disconnect Calendar
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="admin-link-btn"
+              onClick={() => void connectCalendar()}
+              disabled={calendar != null && !calendar.configured}
+            >
+              Connect Calendar
+            </button>
+          )}
           <button
             type="button"
             className="btn-primary btn-sm"
             disabled={pendingUsers.length === 0}
             onClick={() => openCreate()}
           >
-            Schedule demo
+            Schedule
           </button>
-        </div>
-      </div>
+        </>
+      }
+    >
+      <div className={`admin-meetings${selected ? " is-split" : ""}`}>
+        <AdminSurface>
+          <AdminMeetingWeekCalendar
+            meetings={board}
+            weekStart={weekStart}
+            selectedId={selectedId}
+            canCreate={pendingUsers.length > 0}
+            onWeekStartChange={setWeekStart}
+            onSelect={(meeting) => setSelectedId(meeting.id)}
+            onCreateAt={(datetimeLocal) => openCreate(datetimeLocal)}
+          />
+        </AdminSurface>
 
-      <div className="card card--elevated dash-meeting-cal">
-        <p className="dash-muted" style={{ margin: 0 }}>
-          {calendar?.connected
-            ? `Calendar: ${calendar.googleEmail}`
-            : calendar?.configured
-              ? "Connect Calendar to add a Meet link to invites."
-              : "Invites are emailed. Connect Calendar when you want Meet links."}
-        </p>
-        {calendar?.connected ? (
-          <button type="button" className="btn-ghost btn-sm" onClick={() => void handleDisconnect()}>
-            Disconnect
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn-ghost btn-sm"
-            onClick={() => void connectCalendar()}
-            disabled={calendar != null && !calendar.configured}
-          >
-            Connect Calendar
-          </button>
-        )}
-      </div>
-
-      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-        <div className="dash-panel-head">
-          <div className="dash-meeting-filters" role="tablist" aria-label="Meetings view">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === "calendar"}
-              className={`dash-meeting-filters__btn${viewMode === "calendar" ? " is-active" : ""}`}
-              onClick={() => setViewMode("calendar")}
-            >
-              Calendar
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={viewMode === "agenda"}
-              className={`dash-meeting-filters__btn${viewMode === "agenda" ? " is-active" : ""}`}
-              onClick={() => setViewMode("agenda")}
-            >
-              Agenda
-            </button>
-          </div>
-          {viewMode === "agenda" ? (
-            <div className="dash-meeting-filters" role="tablist" aria-label="Meeting status">
-              {FILTERS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={filter === item.id}
-                  className={`dash-meeting-filters__btn${filter === item.id ? " is-active" : ""}`}
-                  onClick={() => setFilter(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        {viewMode === "calendar" ? (
-          <>
-            <AdminMeetingWeekCalendar
-              meetings={board}
-              weekStart={weekStart}
-              selectedId={selectedId}
-              canCreate={pendingUsers.length > 0}
-              onWeekStartChange={setWeekStart}
-              onSelect={(meeting) => setSelectedId(meeting.id)}
-              onCreateAt={(datetimeLocal) => openCreate(datetimeLocal)}
+        {selected ? (
+          <AdminSurface padded>
+            <AdminMeetingCard
+              meeting={selected}
+              busy={actingId === selected.id}
+              onJoin={(meeting) => window.open(meeting.meetLink ?? "", "_blank", "noopener,noreferrer")}
+              onReschedule={openReschedule}
+              onConclude={setCompleteMeeting}
+              onCancel={(meeting) => void handleCancel(meeting)}
             />
-            {selected ? (
-              <div className="dash-week-cal__detail">
-                <AdminMeetingCard
-                  meeting={selected}
-                  busy={actingId === selected.id}
-                  onJoin={(meeting) => window.open(meeting.meetLink ?? "", "_blank", "noopener,noreferrer")}
-                  onReschedule={openReschedule}
-                  onConclude={setCompleteMeeting}
-                  onCancel={(meeting) => void handleCancel(meeting)}
-                />
-              </div>
-            ) : (
-              <p className="dash-muted dash-week-cal__hint">
-                {pendingUsers.length > 0
-                  ? "Select a meeting, or click an empty time to schedule."
-                  : "Select a meeting to join, change, or mark it done."}
-              </p>
-            )}
-          </>
-        ) : loading && meetings.length === 0 ? (
-          <p className="dash-muted" style={{ padding: "1.5rem", textAlign: "center" }}>
-            Loading…
-          </p>
-        ) : meetings.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 200 }}>
-            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              {filter === "SCHEDULED" ? "No upcoming demos" : "No completed demos"}
-            </p>
-            {filter === "SCHEDULED" && pendingUsers.length > 0 ? (
-              <button type="button" className="btn-primary btn-sm" onClick={() => openCreate()}>
-                Schedule demo
-              </button>
-            ) : null}
-          </div>
+          </AdminSurface>
         ) : (
-          <div className="dash-meeting-list">
-            {meetings.map((m) => (
-              <AdminMeetingCard
-                key={m.id}
-                meeting={m}
-                busy={actingId === m.id}
-                onJoin={(meeting) => window.open(meeting.meetLink ?? "", "_blank", "noopener,noreferrer")}
-                onReschedule={openReschedule}
-                onConclude={setCompleteMeeting}
-                onCancel={(meeting) => void handleCancel(meeting)}
-              />
-            ))}
-          </div>
-        )}
-
-        {viewMode === "agenda" && !loading && meetings.length > 0 && totalPages > 1 && (
-          <div
-            className="dash-form-actions"
-            style={{
-              justifyContent: "flex-end",
-              padding: "0.625rem 0.75rem",
-              borderTop: "0.5px solid var(--color-border)",
-            }}
-          >
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              disabled={page === 0 || loading}
-              onClick={() => void load(page - 1)}
-            >
-              Previous
-            </button>
-            <button
-              type="button"
-              className="btn-ghost btn-sm"
-              disabled={page >= totalPages - 1 || loading}
-              onClick={() => void load(page + 1)}
-            >
-              Next
-            </button>
-          </div>
+          <p className="admin-quiet" style={{ margin: 0 }}>
+            {pendingUsers.length > 0
+              ? "Select a meeting, or click an empty time to schedule."
+              : "Select a meeting to join, change, or mark it done."}
+          </p>
         )}
       </div>
 
@@ -452,6 +304,6 @@ export default function AdminMeetingsView() {
         onClose={() => setCompleteMeeting(null)}
         onSubmit={handleComplete}
       />
-    </div>
+    </AdminPage>
   );
 }

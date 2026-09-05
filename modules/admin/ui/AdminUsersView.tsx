@@ -5,61 +5,57 @@ import {
   ADMIN_ROLE_LABELS,
   ADMIN_USER_COLUMNS,
   ADMIN_VIEW_TO_ROLE,
-  adminUserColumnSummary,
   listAdminUsers,
   type AdminUserListItem,
   type AdminUserRole,
 } from "@/modules/admin/api/adminApi";
 import { readAdminUsersCache, writeAdminUsersCache } from "@/modules/admin/api/adminUsersCache";
 import { useToastOnValue } from "@/modules/dashboard/hooks/useToastOnValue";
+import { AdminEmpty, AdminPage, AdminSegmented, AdminSurface } from "@/modules/admin/ui/AdminChrome";
+
+const ROLE_TABS: { view: string; role: AdminUserRole; label: string }[] = [
+  { view: "msmes", role: "MSME", label: "MSME" },
+  { view: "cas", role: "CA", label: "CA" },
+  { view: "css", role: "CS", label: "CS" },
+  { view: "esgs", role: "ESG_CONSULTANT", label: "ESG" },
+  { view: "auditors", role: "ASSURER_AUDITOR", label: "Auditors" },
+];
 
 type AdminUsersViewProps = {
   view: string;
+  onNavigateView?: (view: string) => void;
 };
 
 function displayValue(value: string | null | undefined) {
   const v = value?.trim();
-  return v || "-";
+  return v || "—";
+}
+
+function roleFromView(view: string): AdminUserRole {
+  return ADMIN_VIEW_TO_ROLE[view] ?? "MSME";
 }
 
 function readInitialCache(role: AdminUserRole) {
   return typeof window !== "undefined" ? readAdminUsersCache(role, 0) : null;
 }
 
-export default function AdminUsersView({ view }: AdminUsersViewProps) {
-  const role = ADMIN_VIEW_TO_ROLE[view] as AdminUserRole | undefined;
-  const roleLabel = role ? ADMIN_ROLE_LABELS[role] : "Users";
-  const roleColumns = useMemo(
-    () => (role ? ADMIN_USER_COLUMNS[role] : []),
-    [role],
-  );
+export default function AdminUsersView({ view, onNavigateView }: AdminUsersViewProps) {
+  const role = roleFromView(view);
+  const roleLabel = ADMIN_ROLE_LABELS[role];
+  const roleColumns = useMemo(() => ADMIN_USER_COLUMNS[role], [role]);
 
-  const [users, setUsers] = useState<AdminUserListItem[]>(() => {
-    if (!role) return [];
-    return readInitialCache(role)?.users ?? [];
-  });
+  const [users, setUsers] = useState<AdminUserListItem[]>(() => readInitialCache(role)?.users ?? []);
   const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(() => {
-    if (!role) return 1;
-    return readInitialCache(role)?.totalPages ?? 1;
-  });
-  const [totalElements, setTotalElements] = useState(() => {
-    if (!role) return 0;
-    return readInitialCache(role)?.totalElements ?? 0;
-  });
-  const [loading, setLoading] = useState(() => {
-    if (!role) return false;
-    return readInitialCache(role) === null;
-  });
+  const [totalPages, setTotalPages] = useState(() => readInitialCache(role)?.totalPages ?? 1);
+  const [totalElements, setTotalElements] = useState(() => readInitialCache(role)?.totalElements ?? 0);
+  const [loading, setLoading] = useState(() => readInitialCache(role) === null);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
 
   useToastOnValue(error, "error");
-  useToastOnValue(!role ? "Unknown user list." : null, "error");
-  const [search, setSearch] = useState("");
 
   const applyPageData = useCallback(
     (targetPage: number, content: AdminUserListItem[], tp: number, total: number) => {
-      if (!role) return;
       setUsers(content);
       setPage(targetPage);
       setTotalPages(tp);
@@ -75,8 +71,6 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
 
   const load = useCallback(
     async (targetPage: number, options?: { skipCache?: boolean; silent?: boolean }) => {
-      if (!role) return;
-
       if (!options?.skipCache) {
         const cached = readAdminUsersCache(role, targetPage);
         if (cached) {
@@ -97,12 +91,7 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
 
       try {
         const res = await listAdminUsers(role, targetPage);
-        applyPageData(
-          targetPage,
-          res.content,
-          Math.max(1, res.totalPages),
-          res.totalElements,
-        );
+        applyPageData(targetPage, res.content, Math.max(1, res.totalPages), res.totalElements);
       } catch (err) {
         if (!options?.silent) {
           setError(err instanceof Error ? err.message : "Failed to load users");
@@ -115,11 +104,7 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
   );
 
   useEffect(() => {
-    if (!role) {
-      setLoading(false);
-      return;
-    }
-
+    setSearch("");
     const cached = readAdminUsersCache(role, 0);
     if (cached) {
       applyPageData(0, cached.users, cached.totalPages, cached.totalElements);
@@ -128,7 +113,6 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
       void load(0, { skipCache: true, silent: true });
       return;
     }
-
     void load(0);
   }, [role, applyPageData, load]);
 
@@ -136,59 +120,51 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
     const q = search.trim().toLowerCase();
     if (!q) return users;
     return users.filter((u) => {
-      const base =
-        u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+      const base = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
       if (base) return true;
-      return roleColumns.some((col) =>
-        (col.getValue(u) ?? "").toLowerCase().includes(q),
-      );
+      return roleColumns.some((col) => (col.getValue(u) ?? "").toLowerCase().includes(q));
     });
   }, [users, search, roleColumns]);
 
-  if (!role) {
-    return <div className="dash-content" />;
-  }
+  const activeTab = ROLE_TABS.find((tab) => tab.role === role)?.view ?? "msmes";
 
   return (
-    <div className="dash-content">
-      <div className="card card--elevated dash-welcome-card">
-        <p className="dash-welcome-card__eyebrow">Users</p>
-        <p className="dash-welcome-card__title">{roleLabel}</p>
-        <p className="dash-muted" style={{ marginTop: 6 }}>
-          {loading && users.length === 0
-            ? "Loading…"
-            : loading
-              ? "Updating…"
-              : `${totalElements} registered`}{" "}
-          · Name · {adminUserColumnSummary(role)}
-        </p>
-      </div>
-
-      <div className="card card--elevated" style={{ padding: "0.75rem 1rem" }}>
-        <input
-          type="search"
-          className="dash-input"
-          placeholder={`Search name, email, ${roleColumns.map((c) => c.label.toLowerCase()).join(", ")}…`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          disabled={loading}
+    <AdminPage
+      title="Users"
+      meta={
+        loading && users.length === 0 ? "Loading…" : `${totalElements.toLocaleString()} registered`
+      }
+      actions={
+        <AdminSegmented
+          ariaLabel="User role"
+          value={activeTab}
+          onChange={(next) => onNavigateView?.(next)}
+          options={ROLE_TABS.map((tab) => ({ id: tab.view, label: tab.label }))}
         />
-      </div>
-
-      <div className="card card--elevated" style={{ padding: 0, overflow: "hidden" }}>
-        {loading ? (
-          <p className="dash-muted" style={{ padding: "1.5rem", textAlign: "center" }}>
-            Loading {roleLabel}…
-          </p>
-        ) : filtered.length === 0 ? (
-          <div className="dash-empty" style={{ minHeight: 200 }}>
-            <p className="dash-section-title" style={{ fontSize: "0.8125rem" }}>
-              {search ? "No users match your search" : "No users found"}
-            </p>
+      }
+    >
+      <AdminSurface>
+        <div className="admin-surface__head">
+          <div className="admin-search">
+            <i className="ti ti-search" aria-hidden="true" />
+            <input
+              type="search"
+              className="dash-input"
+              placeholder="Search name, email, or details"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              disabled={loading}
+            />
           </div>
+        </div>
+
+        {loading ? (
+          <AdminEmpty title={`Loading ${roleLabel}…`} />
+        ) : filtered.length === 0 ? (
+          <AdminEmpty title={search ? "No users match your search" : "No users found"} />
         ) : (
-          <div className="dash-data-table-wrap">
-            <table className="dash-data-table">
+          <div className="admin-table-wrap">
+            <table className="admin-table">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -202,11 +178,9 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
               <tbody>
                 {filtered.map((u) => (
                   <tr key={u.id}>
-                    <td className="dash-data-table__primary" data-label="Name">
+                    <td className="admin-table__primary" data-label="Name">
                       {u.name}
-                      <span className="dash-muted" style={{ display: "block", fontSize: "0.625rem", fontWeight: 400 }}>
-                        {u.email}
-                      </span>
+                      <span className="admin-table__sub">{u.email}</span>
                     </td>
                     {roleColumns.map((col) => (
                       <td key={col.key} data-label={col.label}>
@@ -214,20 +188,14 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
                       </td>
                     ))}
                     <td data-label="Status">
-                      <span
-                        className={
-                          u.active ? "dash-chip dash-chip--success" : "dash-chip dash-chip--warning"
-                        }
-                      >
+                      <span className={u.active ? "dash-chip dash-chip--success" : "dash-chip dash-chip--warning"}>
                         {u.active ? "Active" : "Inactive"}
                       </span>
                     </td>
                     <td data-label="Joined">
                       {u.createdAt
-                        ? new Date(u.createdAt).toLocaleDateString(undefined, {
-                            dateStyle: "medium",
-                          })
-                        : "-"}
+                        ? new Date(u.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" })
+                        : "—"}
                     </td>
                   </tr>
                 ))}
@@ -236,19 +204,12 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
           </div>
         )}
 
-        {!loading && users.length > 0 && (
-          <div
-            className="dash-form-actions"
-            style={{
-              justifyContent: "space-between",
-              padding: "0.625rem 0.75rem",
-              borderTop: "0.5px solid var(--color-border)",
-            }}
-          >
-            <span className="dash-muted">
+        {!loading && users.length > 0 && totalPages > 1 ? (
+          <div className="admin-footer">
+            <span className="admin-quiet">
               Page {page + 1} of {totalPages}
             </span>
-            <div className="dash-form-actions" style={{ margin: 0 }}>
+            <div className="admin-toolbar__actions">
               <button
                 type="button"
                 className="btn-ghost btn-sm"
@@ -267,8 +228,8 @@ export default function AdminUsersView({ view }: AdminUsersViewProps) {
               </button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        ) : null}
+      </AdminSurface>
+    </AdminPage>
   );
 }

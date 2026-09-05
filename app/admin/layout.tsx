@@ -2,6 +2,7 @@ import AuthProviderWrapper from "@/modules/platform/auth/AuthProviderWrapper";
 import SessionProvider from "@/app/providers/SessionProvider";
 import AppShellMarker from "@/modules/platform/feedback/AppShellMarker";
 import "../dashboard.css";
+import "../admin-ui.css";
 
 export default function AdminLayout({
   children,
